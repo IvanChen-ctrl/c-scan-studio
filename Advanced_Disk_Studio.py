@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""C-Scan Studio v3.3: loopback-only disk analysis dashboard.
+"""C-Scan Studio v3.4: loopback-only disk analysis dashboard.
 
 - No third-party Python packages, tkinter, admin rights, or cloud API.
 - Safe cache targets are supplied exclusively by the v2.2 allowlist engine.
@@ -41,7 +41,8 @@ import Everything_Official_Manager as vendor
 import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 
-VERSION = "3.3.0"
+VERSION = "3.4.0-beta.2"
+CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
 GIB = 1024 ** 3
@@ -392,7 +393,10 @@ class Analyzer:
         self.latest_export = ""
         self.last_cleanup = None
         self.started_at = time.time()
-        self.es_exe = vendor.local_cli_if_verified(HERE) or detect_es_exe()
+        # Do not execute an ambient es.exe from PATH or third-party install paths.
+        # An unknown executable must never be silently trusted by a disk scanner.
+        self.es_exe = vendor.local_cli_if_verified(HERE)
+        self.cleanup_preview = None
         self.thread = None
         self._record("启动本地只读分析器；默认不自动删除任何文件。")
 
@@ -416,7 +420,7 @@ class Analyzer:
                     "progress": self.progress, "progress_max": self.progress_max,
                     "items": items, "large_files": list(self.large_files),
                     "large_info": dict(self.large_info), "scan_complete": self.scan_complete,
-                    "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if vendor.local_cli_if_verified(HERE) else ("发现外部 ES CLI（需自行信任其来源）" if self.es_exe else "没有 ES CLI；大文件查找将采用限时扫描")),
+                    "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if self.es_exe else "没有经过 SHA-256 校验的官方 ES CLI；不会运行 PATH 中的未知 es.exe，采用限时扫描"),
                     "everything": vendor.status(HERE),
                     "busy": self.phase in ("scanning", "large", "cleaning", "setup"),
                     "logs": list(self.logs[-35:]), "advisories": ADVISORIES,
@@ -427,6 +431,9 @@ class Analyzer:
             if self.phase in ("scanning", "large", "cleaning", "setup"):
                 return False, "当前任务尚未结束，请先停止或等待任务完成。"
             self.cancel.clear()
+            # A preview ticket is valid only for the exact scan snapshot and
+            # selection it was created from. Starting any new task revokes it.
+            self.cleanup_preview = None
             self.phase = phase
             self.message = message
             self.progress = 0
@@ -566,17 +573,23 @@ class Analyzer:
         source = ""
         metadata = {"source": "", "complete": False, "scanned_entries": 0,
                     "min_mb": min_mb, "warning": ""}
-        if self.es_exe:
+        # Verify SHA-256 again immediately before launching the executable.
+        # A previously verified path could have been replaced after startup.
+        verified_now = vendor.local_cli_if_verified(HERE) if self.es_exe else None
+        if self.es_exe and verified_now and os.path.normcase(str(verified_now)) == os.path.normcase(str(self.es_exe)):
             with self.lock:
-                self.message = "尝试 Everything 索引查询..."
+                self.message = "尝试已核验的 Everything 官方索引查询..."
             result, source = list_large_everything(self.es_exe, size_floor, self.cancel)
             if result is not None:
                 metadata["complete"] = not self.cancel.is_set()
                 metadata["source"] = source
                 metadata["scanned_entries"] = len(result)
                 metadata["warning"] = "此列表由 Everything 的索引生成，仅覆盖它实际索引的路径。"
+        if self.es_exe and not verified_now:
+            source = "Everything ES CLI 文件已变化或校验失败：不会执行。"
+            self.es_exe = None
         if result is None and not self.cancel.is_set():
-            self._record((source or "没有 Everything ES CLI") + "，使用有预算的 scandir 扫描。")
+            self._record((source or "没有已经通过校验的 Everything ES CLI") + "，使用有预算的 scandir 扫描。")
             with self.lock:
                 self.message = "普通全盘扫描中（有时间/数量限制）..."
             root = Path("C:\\")
@@ -621,41 +634,168 @@ class Analyzer:
             self._record("用户请求停止当前任务。")
             return True, "已请求停止"
 
-    def start_clean(self, target_ids, confirmation):
+    def _validated_jobs(self, target_ids):
+        """Validate an entire selected allowlisted scan snapshot, under lock.
+
+        No arbitrary paths from the browser are accepted. Returns (jobs, error).
+        """
+        if not isinstance(target_ids, list) or not 1 <= len(target_ids) <= 100:
+            return None, "请选择至少一项、最多 100 项。"
+        if any(not isinstance(key, str) for key in target_ids):
+            return None, "清理项目 ID 格式无效。"
+        if len(target_ids) != len(set(target_ids)):
+            return None, "重复清理目标。"
+        if self.phase in ("scanning", "large", "cleaning", "setup"):
+            return None, "当前有任务正在运行。"
+        if not self.items:
+            return None, "请先运行缓存扫描。"
+        indexed = {row["id"]: row for row in self.items}
+        jobs = []
+        for key in target_ids:
+            if key not in indexed or key not in self.targets:
+                return None, "存在不属于本轮扫描的项目。"
+            row = indexed[key]
+            if not row["allowed"] or row["risk"] not in AUTOCLEAN_RISKS:
+                return None, f"该项目不允许清理：{row['name']}"
+            shots = self.snapshots.get(key, [])
+            if len(shots) != row["count"] or not shots:
+                return None, "文件清单与扫描计数不一致，请重新扫描。"
+            jobs.append((key, self.targets[key], list(shots), row["age_days"]))
+        return jobs, None
+
+    def preview_clean(self, target_ids):
+        """Read-only preflight: list exact authorized categories and samples.
+
+        Issues an ephemeral, single-use ticket for the exact list of IDs. The
+        later deletion STILL re-checks every file's original snapshot metadata.
+        """
+        with self.lock:
+            jobs, error = self._validated_jobs(target_ids)
+            if error:
+                self.cleanup_preview = None
+                return False, error, None
+            indexed = {row["id"]: row for row in self.items}
+            rows = []
+            samples = []
+            for key, _target, shots, days in jobs:
+                row = indexed[key]
+                rows.append({"name": row["name"], "risk": row["risk"],
+                             "priority": row["priority"], "path": row["path"],
+                             "files": len(shots), "bytes": sum(item.size for item in shots),
+                             "age_days": days})
+                # Samples only; no promises that any file will be deleted.
+                for shot in shots[:2]:
+                    if len(samples) < 12:
+                        samples.append(shot.path)
+            ticket = secrets.token_urlsafe(24)
+            self.cleanup_preview = {"ticket": ticket, "ids": tuple(target_ids),
+                                    "expires": time.monotonic() + CLEAN_PREVIEW_TTL}
+            self._record(f"用户请求只读删除预览：{len(jobs)} 类，共 {sum(len(j[2]) for j in jobs)} 个缓存文件。")
+            return True, "已生成预览。不会删除文件。", {
+                "ticket": ticket, "expires_in_seconds": CLEAN_PREVIEW_TTL,
+                "categories": rows,
+                "total_files": sum(row["files"] for row in rows),
+                "total_bytes": sum(row["bytes"] for row in rows),
+                "sample_paths": samples,
+                "warning": "预览仅基于上次扫描快照。删除前仍会逐文件复核；跳过变更或受保护的文件。操作不经过回收站，不能撤销。",
+            }
+
+    def preview_files(self, ticket, offset=0, limit=50):
+        """Read-only, bounded pagination over the *exact* selected scan snapshots.
+
+        A client cannot supply file paths or read any other target. Pagination
+        does not renew the ticket; cancellation, expiration, rescan and cleaning
+        invalidate it. The underlying snapshots remain immutable while idle.
+        """
+        with self.lock:
+            pending = self.cleanup_preview
+            if (not pending or not isinstance(ticket, str) or not ticket or
+                    not secrets.compare_digest(ticket, pending["ticket"]) or
+                    time.monotonic() >= pending["expires"]):
+                if pending and time.monotonic() >= pending["expires"]:
+                    self.cleanup_preview = None
+                return False, "预览凭证无效或已过期。请重新生成预览。", None
+            if (type(offset) is not int or type(limit) is not int or
+                    offset < 0 or not 1 <= limit <= 100):
+                return False, "分页参数无效：offset 必须非负，limit 不得超过 100。", None
+            jobs, error = self._validated_jobs(list(pending["ids"]))
+            if error:
+                self.cleanup_preview = None
+                return False, error, None
+            total = sum(len(shots) for _id, _target, shots, _age in jobs)
+            if offset > total:
+                return False, "分页位置超出本次预览范围。", None
+            files = []
+            position = 0
+            for key, target, shots, age_days in jobs:
+                end = position + len(shots)
+                if end <= offset:
+                    position = end
+                    continue
+                if position >= offset + limit:
+                    break
+                lo = max(0, offset - position)
+                hi = min(len(shots), offset + limit - position)
+                for index in range(lo, hi):
+                    shot = shots[index]
+                    try:
+                        modified = datetime.fromtimestamp(shot.mtime_ns / 1_000_000_000).strftime("%Y-%m-%d")
+                    except (OverflowError, ValueError, OSError):
+                        modified = "未知"
+                    files.append({"number": position + index + 1,
+                                  "category": target.name,
+                                  "path": shot.path,
+                                  "bytes": shot.size,
+                                  "modified": modified,
+                                  "age_days": age_days})
+                position = end
+            next_offset = offset + len(files)
+            return True, "仅返回当前预览中的文件快照，未进行删除。", {
+                "offset": offset, "limit": limit, "total": total, "files": files,
+                "next_offset": next_offset if next_offset < total else None,
+                "expires_in_seconds": max(0, int(pending["expires"] - time.monotonic())),
+                "warning": "文件路径和大小来自扫描时的快照。执行删除之前仍将逐文件重新核验。",
+            }
+
+    def discard_preview(self, ticket=None):
+        """Revoke only the named pending ticket; stale tabs must not revoke new previews."""
+        with self.lock:
+            pending = self.cleanup_preview
+            if ticket is not None and (not pending or not isinstance(ticket, str) or
+                    not secrets.compare_digest(ticket, pending["ticket"])):
+                return False, "预览已更换或过期；旧页面不能撤销新预览。"
+            self.cleanup_preview = None
+        return True, "预览授权已撤销；文件没有删除。"
+
+    def start_clean(self, target_ids, confirmation, ticket=None):
         if confirmation != "DELETE":
             return False, "必须明确输入 DELETE 才能执行删除。"
-        if not isinstance(target_ids, list) or not 1 <= len(target_ids) <= 100:
-            return False, "请选择至少一项、最多 100 项。"
-        if len(target_ids) != len(set(map(str, target_ids))):
-            return False, "重复清理目标。"
         with self.lock:
-            if self.phase in ("scanning", "large", "cleaning", "setup"):
-                return False, "当前有任务正在运行。"
-            if not self.items:
-                return False, "请先运行缓存扫描。"
-            indexed = {row["id"]: row for row in self.items}
-            jobs = []
-            for key in target_ids:
-                if not isinstance(key, str) or key not in indexed or key not in self.targets:
-                    return False, "存在不属于本轮扫描的项目。"
-                row = indexed[key]
-                if not row["allowed"] or row["risk"] not in AUTOCLEAN_RISKS:
-                    return False, f"该项目不允许清理：{row['name']}"
-                shots = self.snapshots.get(key, [])
-                if len(shots) != row["count"]:
-                    return False, "文件清单与扫描计数不一致，请重新扫描。"
-                jobs.append((key, self.targets[key], list(shots), row["age_days"]))
+            jobs, error = self._validated_jobs(target_ids)
+            if error:
+                self.cleanup_preview = None
+                return False, error
+            pending = self.cleanup_preview
+            if (not pending or not isinstance(ticket, str) or not ticket or
+                    not secrets.compare_digest(ticket, pending["ticket"]) or
+                    tuple(target_ids) != pending["ids"] or
+                    time.monotonic() >= pending["expires"]):
+                return False, "请先预览本轮准确的清理清单；预览已过期或项目变化时必须重新预览。"
+            # Single-use even when the worker later errors or is cancelled.
+            self.cleanup_preview = None
             self.cancel.clear()
             self.phase = "cleaning"
-            self.message = "准备删除已明确确认且未变化的缓存文件..."
+            self.message = "准备删除已预览、明确确认且未变化的缓存文件..."
             self.progress = 0
             self.progress_max = len(jobs)
             self.thread = threading.Thread(target=self._worker_wrapper,
                                            args=(lambda: self._clean(jobs),), daemon=True)
             self.thread.start()
-        return True, "已开始按清单清理"
+        return True, "已开始按预览清单清理"
 
     def _clean(self, jobs):
+        before_disk = self._disk()  # best-effort measurement, not a guarantee
+        start_time = time.monotonic()
         running = engine.active_processes()
         result_rows = []
         for index, (key, target, snapshots, age_days) in enumerate(jobs):
@@ -671,9 +811,21 @@ class Analyzer:
                   "bytes": sum(x["bytes"] for x in result_rows),
                   "errors": sum(x["errors"] for x in result_rows),
                   "skipped": sum(x["skipped"] for x in result_rows)}
+        after_disk = self._disk()
+        measurement_ok = bool(before_disk.get("total") and after_disk.get("total") and
+                              before_disk["total"] == after_disk["total"])
+        disk_comparison = {
+            "available": measurement_ok,
+            "before_free": before_disk["free"] if measurement_ok else None,
+            "after_free": after_disk["free"] if measurement_ok else None,
+            "net_free_change": (after_disk["free"] - before_disk["free"]) if measurement_ok else None,
+            "duration_seconds": round(max(0, time.monotonic() - start_time), 2),
+            "disclaimer": "C 盘净空闲空间变化包含同期其他程序的读写，不等同于本工具独占释放量。",
+        }
         with self.lock:
             self.last_cleanup = {"at": datetime.now().isoformat(timespec="seconds"),
                                  "items": result_rows, "totals": totals,
+                                 "disk_comparison": disk_comparison,
                                  "aborted": self.cancel.is_set()}
             self.phase = "idle"
             self.scan_complete = False
@@ -776,7 +928,7 @@ def csv_bytes(report):
 
 
 class LocalHandler(BaseHTTPRequestHandler):
-    server_version = "CScanLocal/3.3"
+    server_version = "CScanLocal/3.4"
 
     def log_message(self, fmt, *args):
         # Avoid leaking the random token into logs.
@@ -878,8 +1030,20 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, msg = manager.start_everything_setup(body.get("confirm", ""))
         elif parsed.path == "/api/stop":
             ok, msg = manager.stop()
+        elif parsed.path == "/api/preview-clean":
+            ok, msg, preview = manager.preview_clean(body.get("ids", []))
+            return self._answer(200 if ok else 409, {"ok": ok, "message": msg,
+                                                     "preview": preview if ok else None})
+        elif parsed.path == "/api/preview-files":
+            ok, msg, page = manager.preview_files(body.get("ticket"),
+                                                   body.get("offset", 0), body.get("limit", 50))
+            return self._answer(200 if ok else 409, {"ok": ok, "message": msg,
+                                                     "page": page if ok else None})
+        elif parsed.path == "/api/cancel-preview":
+            ok, msg = manager.discard_preview(body.get("ticket"))
         elif parsed.path == "/api/clean":
-            ok, msg = manager.start_clean(body.get("ids", []), body.get("confirm", ""))
+            ok, msg = manager.start_clean(body.get("ids", []), body.get("confirm", ""),
+                                          body.get("ticket"))
         elif parsed.path == "/api/reveal":
             ok, msg = manager.reveal(body.get("type", ""), body.get("id", ""))
         elif parsed.path == "/api/tool-action":
@@ -909,7 +1073,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.3.1 - Windows 本地可视化磁盘分析器")
+    print("C-Scan Studio v3.4.0-beta.2 - Windows 本地可视化磁盘分析器")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")

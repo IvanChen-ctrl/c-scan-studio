@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>C-Scan Studio v3.3.1 | 统一控制台 · 安全可控</title>
+<title>C-Scan Studio v3.4.0-beta.2 | 统一控制台 · 安全可控</title>
 <style>
 :root{font-family:Segoe UI,Microsoft YaHei UI,Microsoft YaHei,Arial,sans-serif;color:#dce6f4;background:#08111f;font-synthesis:none;--surface:#101d30;--surface2:#142338;--line:#273a52;--muted:#91a4bb;--primary:#66b2ff;--green:#41d6a4;--amber:#ffcb60;--orange:#ff9b60;--red:#ff7387;--gray:#b0b7c8;--radius:15px}
 *{box-sizing:border-box}body{margin:0;min-width:360px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:var(--primary)}.app{display:flex;min-height:100vh}
@@ -51,12 +51,38 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
 .tool-warn{border:1px solid #eddcba;background:#fff9ec;border-radius:11px;color:#806023;font-size:11px;line-height:1.7;padding:12px 14px;margin:0 19px 19px}
 @media(max-width:1100px){.tool-layout{grid-template-columns:1fr}.safety-ribbon{align-items:flex-start}}
 @media(max-width:650px){.safety-ribbon{padding:14px}.safety-point{font-size:10px}.tool-layout{padding:12px}.tool-panel{padding:15px}}
+
+/* v3.4 - Mandatory preflight and explicit user opt-in */
+.cleanup-dialog{position:fixed;max-width:min(860px,94vw);width:860px;max-height:90vh;overflow:auto;border:1px solid #a8c3d7;border-radius:18px;background:#fff;color:#1e3550;padding:0;box-shadow:0 30px 100px #0c1f3766}
+.cleanup-dialog::backdrop{background:rgba(7,23,41,.72);backdrop-filter:blur(3px)}
+.review-head{background:#edf7ff;padding:22px 25px 17px;border-bottom:1px solid #cbdfee}.review-kicker{font-size:11px;font-weight:800;color:#145a91;letter-spacing:.9px}.review-head h2{font-size:22px;margin:6px 0;color:#163857}.review-head p{font-size:12px;line-height:1.8;color:#486985;margin:0}
+.review-metrics{padding:16px 25px;font-size:14px;font-weight:750;color:#20547d;background:#f7fbff}.review-table-wrap{padding:4px 18px;max-height:37vh;overflow:auto}
+.review-table{min-width:570px;color:#23435e}.review-table th{position:sticky;top:0;background:#f2f7fd;color:#466580}.review-table td{font-size:12px;color:#274560;border-color:#e3ecf4;overflow-wrap:anywhere}.review-table .mono{max-width:450px;font-size:11px!important;color:#52748b!important}
+.review-files{margin:12px 24px;padding:10px 13px;border:1px solid #e1e9f1;border-radius:10px;font-size:12px}.review-files summary{font-weight:700;cursor:pointer;color:#225278}.review-samples{font:11px/1.9 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto;color:#506d82;margin-top:9px}.review-warning{margin:13px 24px;padding:13px 15px;background:#fff8eb;border:1px solid #efd8ae;border-radius:11px;color:#855b19;font-size:12px;line-height:1.8}
+.review-buttons{border-top:1px solid #dfe8f0;padding:15px 24px 19px;display:flex;justify-content:end;flex-wrap:wrap;gap:10px;background:#f9fcff}
+@media(max-width:650px){.cleanup-dialog{width:96vw}.review-head{padding:18px}.review-metrics{padding:12px 18px}.review-table-wrap{padding:2px 10px}.review-buttons{padding:15px}.review-table{min-width:0}.review-table thead{display:none}.review-table tbody tr{display:flex;flex-wrap:wrap;gap:2px 8px;padding:9px 4px;border-bottom:1px solid #dfe9f2}.review-table tbody tr td{border:0;flex:1 1 27%;padding:5px}.review-table tbody tr td:first-child{flex:1 1 100%}}
+
+/* v3.4 beta2: bounded page-by-page file preview and measured post-clean summary */
+.review-files-scroll{max-height:230px;overflow:auto;border:1px solid #e1e9f1;border-radius:9px;margin-top:10px}
+.review-file-table{min-width:610px;color:#274560}
+.review-file-table th{background:#f0f7fc;color:#3d627f}
+.review-file-table td{font-size:11px;line-height:1.55;padding:8px 10px;color:#284b65;border-color:#e2eaf1}
+.review-file-table td.file-name{overflow-wrap:anywhere;word-break:break-word;font-family:Consolas,'Microsoft YaHei',monospace;font-size:11px}
+.review-pager{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;color:#4e6f89;font-size:11px}
+.cleanup-result{background:#eaf8f6;border:1px solid #b1ded2;border-radius:12px;margin-bottom:14px;padding:14px 17px;color:#1d5e51}
+.cleanup-result h2{font-size:14px;color:#18604c;margin:0 0 8px}
+.cleanup-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cleanup-result-metric{border-left:2px solid #8dd4bd;padding-left:10px;min-width:0}
+.cleanup-result-metric span{display:block;font-size:11px;color:#4b7772}
+.cleanup-result-metric strong{font-size:18px;display:block;margin:5px 0;color:#135b4b;font-variant-numeric:tabular-nums}
+.cleanup-result p{font-size:11px;margin:10px 0 0;color:#537e79;line-height:1.6}
+@media(max-width:650px){.review-file-table{min-width:540px}.review-files-scroll{max-height:220px}.cleanup-result-grid{grid-template-columns:1fr}.cleanup-result-metric strong{font-size:16px}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="sidebar">
-  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">统一控制台 / 安全可控 v3.3.1</div></div></div>
+  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">统一控制台 / 安全可控 v3.4.0-beta.2</div></div></div>
   <div class="nav-title">主要功能</div>
   <button class="nav-btn active" id="nav-cache" onclick="switchPage('cache')"><span class="nav-ico">◫</span><span class="nav-text">智能缓存清理</span></button>
   <button class="nav-btn" id="nav-large" onclick="switchPage('large')"><span class="nav-ico">⌕</span><span class="nav-text">大文件快速搜索</span></button>
@@ -72,18 +98,23 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
   <div class="topline"><div><div class="eyebrow">C-SCAN STUDIO · LOCAL DESKTOP</div><div class="h1">让 C 盘清理变得简单、可控</div><div class="subtitle">快速找到可清理空间，直观判断风险。<strong>没有你的明确确认，不会删除文件。</strong></div></div>
   <div class="top-actions"><button class="button ghost" id="btn-export-json" onclick="downloadReport('json')">↓ JSON 报告</button><button class="button ghost" onclick="downloadReport('csv')">↓ CSV 表格</button></div></div>
   <div class="flowbar">
-    <div><div class="flow-title">三步完成 · 推荐先从只读扫描开始</div>
-      <div class="steps"><span class="step"><b>1</b>扫描空间</span><span class="step-arrow">→</span><span class="step"><b>2</b>按风险筛选</span><span class="step-arrow">→</span><span class="step"><b>3</b>勾选并确认清理</span></div>
+    <div><div class="flow-title">四步完成 · 默认无选择、默认不删除</div>
+      <div class="steps"><span class="step"><b>1</b>扫描空间</span><span class="step-arrow">→</span><span class="step"><b>2</b>按风险筛选</span><span class="step-arrow">→</span><span class="step"><b>3</b>主动勾选并预览</span><span class="step-arrow">→</span><span class="step"><b>4</b>输入 DELETE</span></div>
       <div class="flow-hint">扫描只读取文件属性；绿色建议优先，黄色由你决定，橙色／红色／灰色不开放自动清理。</div>
     </div><div class="flow-action"><div class="flow-reassure">无需管理员权限<br>默认不会删除</div><button class="button primary" id="btn-hero-fast" onclick="startScan('fast')">⚡ 开始安全扫描</button></div>
   </div>
-  <div class="safety-ribbon" aria-label="本软件的安全可控原则"><div><h2>安全不是一句“无毒保证”，而是一套可检查的控制</h2><p>一键入口只负责启动界面。扫描只读、删除逐文件复核；清理前必须选择项目并输入 DELETE。</p></div><div class="safety-points"><span class="safety-point">✓ 默认不删除</span><span class="safety-point">✓ 本机 127.0.0.1</span><span class="safety-point">✓ 不自动上传</span><span class="safety-point">✓ 模型 / 环境保护</span></div></div>
+  <div class="safety-ribbon" aria-label="本软件的安全可控原则"><div><h2>安全不是一句“无毒保证”，而是一套可检查的控制</h2><p>一键入口只负责启动界面。扫描只读、删除逐文件复核；清理前必须主动勾选、预览原始扫描清单，再输入 DELETE。</p></div><div class="safety-points"><span class="safety-point">✓ 默认零勾选</span><span class="safety-point">✓ 删除前逐项预览</span><span class="safety-point">✓ 预览凭证仅可使用一次</span><span class="safety-point">✓ 本机 127.0.0.1</span><span class="safety-point">✓ 不自动上传</span><span class="safety-point">✓ 模型 / 环境保护</span></div></div>
+  <section class="cleanup-result hide" id="cleanup-result" aria-live="polite"><h2>上次清理结果 · 实际与估算分开展示</h2>
+    <div class="cleanup-result-grid"><div class="cleanup-result-metric"><span>成功删除文件 / 逻辑大小</span><strong id="result-logical">—</strong></div>
+    <div class="cleanup-result-metric"><span>本轮之前 C 盘可用空间</span><strong id="result-before">—</strong></div>
+    <div class="cleanup-result-metric"><span>本轮之后 C 盘净变化</span><strong id="result-delta">—</strong></div></div>
+    <p id="result-note">磁盘净变化可能受其他程序并发写入影响，不能直接视为本工具实际回收量。</p></section>
   <div class="metrics"><div class="metric"><div class="metric-label">C 盘可用空间</div><div class="metric-value" id="m-free">—</div><div class="metric-foot" id="m-percent">正在读取磁盘</div></div><div class="metric"><div class="metric-label">绿色 · 建议优先</div><div class="metric-value accent-green" id="m-green">—</div><div class="metric-foot" id="m-green-foot">仅已完成扫描项目</div></div><div class="metric"><div class="metric-label">黄色 · 可选清理</div><div class="metric-value accent-amber" id="m-amber">—</div><div class="metric-foot" id="m-amber-foot">需要自行勾选</div></div><div class="metric"><div class="metric-label">已识别候选文件</div><div class="metric-value accent-blue" id="m-count">—</div><div class="metric-foot" id="m-count-foot">缓存白名单文件数</div></div></div>
   <div class="usage"><strong id="disk-usage-label">C 盘使用情况</strong><div class="storage-track" role="progressbar" aria-label="C盘已使用空间" aria-valuemin="0" aria-valuemax="100" id="disk-usage-track"><span id="disk-usage-bar"></span></div><span id="disk-usage-note">本机磁盘数据</span></div>
   <div class="status-panel"><div class="status-left"><span class="dot" id="task-dot"></span><span class="status-text" id="task-msg">准备加载...</span></div><div class="progressbox"><div class="progress"><span id="progressbar" style="width:0%"></span></div><span class="progress-num" id="progressnum">0%</span><button class="button tiny" id="btn-stop" disabled onclick="stopTask()">停止</button></div></div>
   <div class="workspace" id="workspace">
     <div>
-      <section class="surface" id="page-cache"><div class="surface-head"><span class="page-ribbon">步骤 1–3 · 清理计划</span><h2>建议清理的缓存</h2><p>逐项列出扫描范围、优先级、风险颜色与预计空间。绿色默认推荐；黄色需主动勾选；橙色/红色/灰色仅供查看。</p><div class="legend"><span><b class="circle green-bg"></b>绿色 · 低风险</span><span><b class="circle amber-bg"></b>黄色 · 中风险</span><span><b class="circle orange-bg"></b>橙色 · 高风险</span><span><b class="circle red-bg"></b>红色 · 极高风险</span><span><b class="circle gray-bg"></b>灰色 · 禁止自动清理</span></div></div>
+      <section class="surface" id="page-cache"><div class="surface-head"><span class="page-ribbon">步骤 1–4 · 清理计划</span><h2>建议清理的缓存</h2><p>逐项列出扫描范围、优先级、风险颜色与预计空间。绿色建议优先，但<strong>任何项目均不会自动勾选</strong>；黄色需主动勾选，橙色/红色/灰色仅供查看。</p><div class="legend"><span><b class="circle green-bg"></b>绿色 · 低风险</span><span><b class="circle amber-bg"></b>黄色 · 中风险</span><span><b class="circle orange-bg"></b>橙色 · 高风险</span><span><b class="circle red-bg"></b>红色 · 极高风险</span><span><b class="circle gray-bg"></b>灰色 · 禁止自动清理</span></div></div>
         <div class="controls"><button class="button primary" id="btn-fast" onclick="startScan('fast')">⚡ 快速扫描</button><button class="button" id="btn-full" onclick="startScan('complete')">详细完整扫描</button><div class="search"><input id="search-cache" placeholder="输入名称、目录、分类实时筛选..." aria-label="搜索清理项目"></div><select class="control-select" id="filter-cache" aria-label="筛选风险"><option value="all">全部风险</option><option value="green">绿色</option><option value="amber">黄色</option><option value="orange">橙色</option><option value="red">红色</option></select></div>
         <div class="table-scroll"><table><thead><tr><th style="width:35px"><input class="checkbox" id="check-all-green" type="checkbox" title="选择全部已允许的绿色项目"></th><th data-sort="priority">优先级 ↕</th><th data-sort="risk">风险 ↕</th><th data-sort="name">清理项目 ↕</th><th data-sort="size">预计空间 ↕</th><th data-sort="count">文件数 ↕</th><th>建议 / 当前状态</th></tr></thead><tbody id="cache-rows"><tr><td colspan="7" class="empty">准备扫描 C 盘缓存目录...</td></tr></tbody></table></div>
         <div class="footerline"><span id="cache-summary">扫描结果按风险和优先级排序</span><span>快扫不完整的项目禁止清理</span></div>
@@ -122,22 +153,40 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
           <div class="caution-text">隐私提示：公开在线扫描通常会向安全厂商共享样本。请勿上传个人文档、程序日志、密钥、内部代码或任何保密资料。</div>
         </div>
         <div class="security-section"><h3>适合发给朋友的 3 步验证方法</h3><div class="share-steps"><div><b>01 · 独立校验压缩包</b><p>在 Windows 使用 <code>Get-FileHash</code>，对照发布者从另一个渠道提供的整包 SHA-256。</p></div><div><b>02 · Microsoft Defender</b><p>从“工具与高级维护”调用 Defender，或在资源管理器中右键扫描完整 ZIP。</p></div><div><b>03 · 公开检测结果</b><p>主动将发行 ZIP 上传以上服务，并把真实的报告 URL 分享给对方。每个新版本都要重新检测。</p></div></div></div>
-        <div class="security-section"><h3>GitHub 开源发布与可信来源</h3><p>公开源码、GitHub Actions 自动测试、CodeQL、安全问题报告与发行包构建来源证明可帮助朋友核验。<strong>只有发布成功并完成 Actions 检查后，才可以提供真实的 GitHub 绿色检查或构建证明链接。</strong></p><div class="security-row"><a class="button" href="https://github.com/new?name=c-scan-studio" target="_blank" rel="noopener noreferrer">前往 GitHub 新建仓库 ↗</a><a class="button" href="https://docs.github.com/en/code-security/code-scanning" target="_blank" rel="noopener noreferrer">了解 CodeQL ↗</a></div><div class="caution-text">本地软件不会自动上传工程、清理报告或任何个人路径到 GitHub；发布前请检查源码包是否包含私人信息。完整上传方法见 docs/GITHUB_PUBLISH_CN.md。</div></div>
+        <div class="security-section"><h3>GitHub 开源发布与可信来源</h3><p>公开源码、GitHub Actions 自动测试、CodeQL、安全问题报告与发行包构建来源证明可帮助朋友核验。<strong>只有发布成功并完成 Actions 检查后，才可以提供真实的 GitHub 绿色检查或构建证明链接。</strong></p><div class="security-row"><a class="button" href="https://github.com/IvanChen-ctrl/c-scan-studio/releases" target="_blank" rel="noopener noreferrer">查看 GitHub 正式发行版 ↗</a><a class="button" href="https://github.com/IvanChen-ctrl/c-scan-studio/blob/main/docs/SECURITY_VERIFICATION_v3.3.1.md" target="_blank" rel="noopener noreferrer">已发布版本的安全证据 ↗</a><a class="button" href="https://docs.github.com/en/code-security/code-scanning" target="_blank" rel="noopener noreferrer">了解 CodeQL ↗</a></div><div class="caution-text">本地软件不会自动上传工程、清理报告或任何个人路径到 GitHub；发布前请检查源码包是否包含私人信息。完整上传方法见 docs/GITHUB_PUBLISH_CN.md。</div></div>
         <div class="security-foot">说明：无论是“本地哈希匹配”、杀毒引擎未报毒，还是软件拥有数字签名，都不能百分百排除风险。公开源码、独立校验、透明权限和可信发布渠道应结合使用。</div>
       </section>
       <section class="surface hide" id="page-logs"><div class="surface-head"><h2>运行日志与安全说明</h2><p>界面监听本机 127.0.0.1。关闭启动 BAT 的控制台可退出；不会上传文件或发送数据。</p></div><div style="padding:18px"><div class="help-text"><b>P1</b> 绿色且有明显空间收益：优先推荐。<br><b>P2</b> 低风险但收益不高，或中风险且空间收益明显。<br><b>P3</b> 中风险小收益 / 高风险：人工评估。<br><b>P4</b> 红色或明确保护：禁止一键删除。<br><br><b>注意：</b>空间估算使用文件逻辑大小，压缩、硬链接、占用文件等会影响最终释放量。快速扫描设有时间/文件数预算；不完整项目绝不会允许直接清理。清理不能从本工具撤销，首次建议先备份。</div><h3 style="font-size:13px;margin-top:24px">最近事件</h3><div class="logbox" id="log-box">等待日志...</div></div></section>
     </div>
-    <div id="detail-panel"><section class="surface detail"><div class="detail-heading">当前选中项</div><div id="detail-content"><div class="detail-title">请选择一个项目</div><p class="soft">点击左侧清理项目或大文件，可查看完整路径、风险解释和建议操作。</p></div><div class="safe-action" id="clean-action"><div class="label">已勾选可清理内容</div><div class="amount" id="selected-size">0 B</div><button class="button good wide" id="btn-clean" disabled onclick="cleanSelected()">清理勾选项目 · 需确认</button><div class="soft" style="margin-top:9px">默认只勾选绿色。黄色必须主动勾选；所有删除均需输入 DELETE。</div></div><div class="legend-side"><div class="detail-heading">保护原则</div><p class="soft">不动 FinGPT、LoRA、Hugging Face、Python/Conda 环境、CUDA、源代码、下载文件与 Windows 组件。</p></div></section></div>
+    <div id="detail-panel"><section class="surface detail"><div class="detail-heading">当前选中项</div><div id="detail-content"><div class="detail-title">请选择一个项目</div><p class="soft">点击左侧清理项目或大文件，可查看完整路径、风险解释和建议操作。</p></div><div class="safe-action" id="clean-action"><div class="label">已勾选可清理内容</div><div class="amount" id="selected-size">0 B</div><button class="button good wide" id="btn-clean" disabled onclick="cleanSelected()">清理勾选项目 · 先预览</button><div class="soft" style="margin-top:9px">默认全部不勾选。先查看文件清单，再输入 DELETE；删除不经回收站。</div></div><div class="legend-side"><div class="detail-heading">保护原则</div><p class="soft">不动 FinGPT、LoRA、Hugging Face、Python/Conda 环境、CUDA、源代码、下载文件与 Windows 组件。</p></div></section></div>
   </div>
-  <div class="notice"><strong>扫描速度提示：</strong>Everything 加速仅作用于“大文件查找”且要求 Everything 正在运行、ES CLI 可用。缓存清理候选仍逐项进行实际路径与文件年龄核验，以防误删。所有结果只保存在本机，报告可能含完整路径。</div>
+  <div class="notice"><strong>扫描速度提示：</strong>Everything 加速只用于“大文件查找”，且仅执行通过固定 SHA-256 校验的官方 ES CLI；不会自动执行 PATH 中来源未知的 es.exe。缓存清理候选仍逐项进行实际路径与文件年龄核验，以防误删。所有结果只保存在本机，报告可能含完整路径。</div>
 </main>
 </div>
+<dialog id="clean-preview-dialog" class="cleanup-dialog" aria-labelledby="clean-preview-title" aria-modal="true">
+  <div class="review-head"><div class="review-kicker">正式删除之前 · 只读预览</div><h2 id="clean-preview-title">核对将要清理的项目</h2>
+    <p>这一步尚未删除任何文件。请检查类别、原始路径及候选文件数。操作一旦执行，不经过回收站，不能撤销。</p></div>
+  <div class="review-metrics" id="preview-metrics">等待生成预览...</div>
+  <div class="review-table-wrap"><table class="review-table"><thead><tr><th>清理类别 / 文件夹</th><th>风险</th><th>候选文件</th><th>逻辑大小</th></tr></thead><tbody id="preview-rows"></tbody></table></div>
+  <details class="review-files" id="preview-files-detail" open><summary>逐文件查看完整清理清单（分页，每页最多 50 个；仅显示扫描快照）</summary>
+    <div class="review-pager"><span id="preview-page-state" role="status">正在读取第 1 页...</span><span>
+      <button type="button" class="button tiny" id="preview-prev" disabled onclick="loadPreviewPage(previewPageOffset-50)">上一页</button>
+      <button type="button" class="button tiny" id="preview-next" disabled onclick="loadPreviewPage(previewPageOffset+50)">下一页</button>
+    </span></div>
+    <div class="review-files-scroll"><table class="review-file-table"><thead><tr><th>序号</th><th>缓存类别</th><th>候选文件完整路径（只读）</th><th>逻辑大小</th><th>修改日期</th></tr></thead>
+      <tbody id="preview-file-rows"><tr><td colspan="5">等待预览清单...</td></tr></tbody></table></div>
+    <p class="soft">可逐页查看所有候选文件。页面不会自动打开文件或上传清单。文件在实际执行前仍逐项复核。</p>
+  </details>
+  <div class="review-warning" id="preview-warning">每个文件将在执行前重新核验。仅清理仍符合白名单和扫描快照的文件。</div>
+  <div class="review-buttons"><button type="button" class="button" onclick="closePreview()">取消，暂不清理</button><button type="button" class="button danger" id="preview-approve" onclick="approvePreview()">已确认，输入 DELETE</button></div>
+</dialog>
 <script>
 'use strict';
 const session = new URLSearchParams(location.search).get('t') || '';
 const sections=['cache','large','advice','tools','security','logs'];
 let view='cache', latest=null, selected=new Set(), selectedRow=null, selectedKind=null;
-let initializedChecks=false, lastBusy=false, sortBy='priority', sortDir=1, pollRunning=false;
+let previewPageOffset=0, previewPageRequest=0;
+let pendingPreview=null, sortBy='priority', sortDir=1, pollRunning=false;
 const E=id=>document.getElementById(id);
 const fmt=n=>{n=Number(n)||0;if(n<1024)return Math.round(n)+' B';const U=['KiB','MiB','GiB','TiB'];let i=-1;do{n/=1024;i++}while(n>=1024&&i<U.length-1);return n.toFixed(n>=100?0:n>=10?1:2)+' '+U[i]};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -150,7 +199,7 @@ async function getState(){const res=await fetch(QS('/api/state'),{cache:'no-stor
 async function post(path,body={}){const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSCAN-Token':session},body:JSON.stringify(body)});const obj=await res.json();if(!res.ok||!obj.ok)throw Error(obj.message||obj.error||'操作失败');return obj}
 function notify(s){E('task-msg').textContent=s}
 function switchPage(s){view=s;E('workspace').classList.toggle('security-layout',s==='security'||s==='tools');for(const name of sections){E('page-'+name).classList.toggle('hide',name!==s);E('nav-'+name).classList.toggle('active',name===s)}selectedRow=null;selectedKind=null;showDetail()}
-async function startScan(mode){if(latest?.busy)return;selected.clear();initializedChecks=false;if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
+async function startScan(mode){if(latest?.busy)return;selected.clear();pendingPreview=null;if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
 async function setupEverything(){
  if(latest?.busy)return;
  if(!confirm('将从 voidtools 官方网站下载固定版本 Everything 与 ES CLI，并校验 SHA-256 后解压到本工具目录。\n\nEverything 启动后可能提示设置索引服务或管理员权限。\n\n不会自动安装服务、改注册表或修改系统 PATH。是否继续？'))return;
@@ -186,7 +235,57 @@ function renderToolbox(){const t=latest?.toolbox||{},py=t.python||{},every=lates
 function allSelected(){const byid=new Map(latest?.items?.map(x=>[x.id,x])||[]);return [...selected].map(id=>byid.get(id)).filter(x=>x&&x.allowed)}
 function selectedSize(){return allSelected().reduce((n,x)=>n+x.size,0)}
 function updateSelection(){const list=allSelected(),total=selectedSize();E('selected-size').textContent=fmt(total)+' / '+list.length+' 项';E('btn-clean').disabled=!list.length||latest?.busy;const green=(latest?.items||[]).filter(x=>x.allowed&&x.risk==='green');E('check-all-green').checked=green.length>0&&green.every(x=>selected.has(x.id));E('check-all-green').disabled=!green.length||latest?.busy}
-async function cleanSelected(){const rows=allSelected();if(!rows.length)return;const hasAmber=rows.some(r=>r.risk==='amber');let text='将删除 '+rows.length+' 个白名单缓存项目中已扫描且未变化的文件，估算 '+fmt(selectedSize())+'。\n\n操作不经过回收站，无法撤销。';if(hasAmber)text+='\n\n包含黄色中风险缓存：以后可能需要重新下载或重建。';if(!confirm(text+'\n\n是否进入最终确认？'))return;const response=prompt('为确认不可撤销删除，请输入大写 DELETE：','');if(response!=='DELETE'){notify('清理取消：未输入 DELETE。');return}try{await post('/api/clean',{ids:rows.map(r=>r.id),confirm:'DELETE'});selected.clear();notify('已开始清理，请查看进度。')}catch(e){alert(e.message)}}
+async function loadPreviewPage(offset){
+ const p=pendingPreview;if(!p)return;
+ if(!Number.isInteger(offset)||offset<0)return;
+ const requestId=++previewPageRequest;
+ E('preview-page-state').textContent='正在读取文件页...';
+ E('preview-prev').disabled=true;E('preview-next').disabled=true;
+ try{
+  const response=await post('/api/preview-files',{ticket:p.ticket,offset,limit:50});
+  if(pendingPreview!==p||requestId!==previewPageRequest)return; // Ignore stale responses.
+  const page=response.page;
+  if(!page||!Array.isArray(page.files))throw Error('文件清单响应无效');
+  previewPageOffset=page.offset;
+  E('preview-file-rows').innerHTML=page.files.map(x=>`<tr><td class="tabular">${Number(x.number).toLocaleString('zh-CN')}</td><td>${esc(x.category)}</td><td class="file-name">${esc(x.path)}</td><td class="tabular">${fmt(x.bytes)}</td><td class="tabular">${esc(x.modified)}</td></tr>`).join('')||'<tr><td colspan="5">没有候选文件</td></tr>';
+  E('preview-page-state').textContent=`第 ${page.total?Math.floor(page.offset/50)+1:0} / ${Math.ceil(page.total/50)} 页 · 显示 ${page.files.length?page.offset+1:0}–${page.offset+page.files.length} / ${page.total.toLocaleString('zh-CN')} 个 · 凭证约剩 ${page.expires_in_seconds} 秒`;
+  E('preview-prev').disabled=page.offset===0;
+  E('preview-next').disabled=page.next_offset===null;
+  E('preview-approve').disabled=false;
+ }catch(e){
+  if(pendingPreview===p&&requestId===previewPageRequest){E('preview-page-state').textContent='文件清单读取失败：'+e.message;E('preview-approve').disabled=true;}
+ }
+}
+async function cleanSelected(){
+ const rows=allSelected();if(!rows.length)return;
+ if(latest?.busy){notify('请在任务结束后重新预览。');return}
+ const ids=rows.map(x=>x.id);
+ try{
+  const response=await post('/api/preview-clean',{ids});
+  const p=response.preview;if(!p?.ticket)throw Error('服务器未提供有效预览凭证');
+  pendingPreview={ticket:p.ticket,ids};
+  const amber=p.categories.some(x=>x.risk==='amber');
+  E('preview-metrics').textContent=`${p.categories.length} 类 · ${p.total_files.toLocaleString('zh-CN')} 个候选文件 · 预计最多 ${fmt(p.total_bytes)} · 预览凭证 ${p.expires_in_seconds} 秒内有效`;
+  E('preview-rows').innerHTML=p.categories.map(x=>`<tr><td><strong>${esc(x.name)}</strong><div class="mono">${esc(x.path)}</div></td><td>${riskTag(x.risk)}</td><td class="tabular">${Number(x.files).toLocaleString()}</td><td class="tabular">${fmt(x.bytes)}</td></tr>`).join('');
+  E('preview-warning').textContent=p.warning+(amber?' 包含黄色项目：缓存可能需要重新下载或重建。':'')+' 全部候选可在下方分页查看，数据均来自本次扫描快照。';
+  E('preview-approve').disabled=true;
+  E('preview-file-rows').innerHTML='<tr><td colspan="5">读取完整文件预览的第一页...</td></tr>';
+  E('clean-preview-dialog').showModal();
+  await loadPreviewPage(0);
+ }catch(e){pendingPreview=null;alert('不能生成删除预览：'+e.message)}
+}
+function closePreview(){const previous=pendingPreview;pendingPreview=null;previewPageOffset=0;previewPageRequest++;E('clean-preview-dialog').close();if(previous)post('/api/cancel-preview',{ticket:previous.ticket}).catch(e=>notify('预览已关闭；旧凭证会自动失效：'+e.message))}
+async function approvePreview(){
+ const p=pendingPreview;if(!p)return;
+ const typed=prompt('最后确认：删除已预览的缓存文件不经过回收站。请输入大写 DELETE：','');
+ if(typed!=='DELETE'){notify('已取消：未输入 DELETE，文件没有删除。');return}
+ E('preview-approve').disabled=true;
+ try{await post('/api/clean',{ids:p.ids,confirm:'DELETE',ticket:p.ticket});pendingPreview=null;E('clean-preview-dialog').close();selected.clear();notify('已开始清理已预览的项目；文件将逐个复核。')}
+ catch(e){pendingPreview=null;E('clean-preview-dialog').close();alert('未执行清理：'+e.message)}
+ finally{E('preview-approve').disabled=false}
+}
+E('clean-preview-dialog').addEventListener('close',()=>{if(pendingPreview){const previous=pendingPreview;pendingPreview=null;previewPageRequest++;post('/api/cancel-preview',{ticket:previous.ticket}).catch(()=>notify('预览关闭；授权将在 120 秒内自动过期'))}});
+
 async function reveal(){if(!selectedRow||!selectedKind)return;try{await post('/api/reveal',{id:selectedRow,type:selectedKind})}catch(e){alert(e.message)}}
 function showDetail(){let item;if(selectedKind==='cache')item=(latest?.items||[]).find(x=>x.id===selectedRow);if(selectedKind==='large')item=(latest?.large_files||[]).find(x=>x.id===selectedRow);if(!item){E('detail-content').innerHTML='<div class="detail-title">请选择一个项目</div><p class="soft">点击列表项目后，可以看到它的具体路径、优先级和风险说明。</p>';return}const isCache=selectedKind==='cache';E('detail-content').innerHTML=`<div class="detail-title">${esc(isCache?item.name:(item.path.split(/[\\/]/).pop()))}</div><div class="detail-tags">${prioTag(item.priority)} ${riskTag(item.risk)}</div><div class="detail-row"><div class="key">完整位置</div><div class="val mono">${esc(item.path)}</div></div><div class="detail-row"><div class="key">${isCache?'符合清理条件的文件':'文件大小'}</div><div class="val">${fmt(item.size)} ${isCache?'· '+item.count+' 个文件':''}</div></div><div class="detail-row"><div class="key">推荐理由</div><div class="val">${esc(item.reason)}</div></div>${isCache?`<div class="detail-row"><div class="key">扫描与安全限制</div><div class="val">${esc(item.note)}<br>保留最近 ${item.age_days} 天。<br>状态：${esc(item.state)}<br>${item.allowed?'允许勾选。': '禁止在此界面清理。'} </div></div>`:`<div class="detail-row"><div class="key">处理原则</div><div class="val">${esc(item.action)}<br>修改日期：${esc(item.mtime)}</div></div>`}<button class="button wide" id="btn-reveal" style="margin-top:14px" onclick="reveal()">在文件资源管理器中打开</button>`;
 }
@@ -195,15 +294,26 @@ function renderCache(){const list=sortedCache(),el=E('cache-rows');if(!list.leng
 function renderLarge(){const query=E('search-large').value.trim().toLowerCase();const list=(latest?.large_files||[]).filter(x=>!query||(x.path+' '+x.reason).toLowerCase().includes(query));E('large-rows').innerHTML=list.length?list.map(x=>`<tr data-kind="large" data-id="${esc(x.id)}" class="${selectedRow===x.id&&selectedKind==='large'?'selected':''}"><td>${prioTag(x.priority)}</td><td>${riskTag(x.risk)}</td><td class="tabular">${fmt(x.size)}</td><td class="tabular">${esc(x.mtime)}</td><td><div class="cell-name" title="${esc(x.path)}">${esc(x.path.split(/[\\/]/).pop())}</div><div class="cell-path" title="${esc(x.path)}">${esc(x.path)}</div></td></tr>`).join(''):'<tr><td colspan="5" class="empty">暂无大文件结果。点击“开始查找”或调整筛选。</td></tr>';const info=latest?.large_info||{}, warning=info.warning||'';E('large-source').textContent=`数据来源：${info.source||'未扫描'} ${info.scanned_entries?'· 记录/检查 '+Number(info.scanned_entries).toLocaleString()+' 条':''} ${info.complete?'· 已完成':'· 可能不完整'}。${warning}`;E('large-summary').textContent=`显示 ${list.length} 项 / ${(latest?.large_files||[]).length} 项；此表只读，不允许删除。`}
 function renderAdvice(){E('advice-list').innerHTML=(latest?.advisories||[]).map(x=>`<div class="note-row">${riskTag(x.risk)}<div style="min-width:0"><div class="note-title">${esc(x.name)} &nbsp; ${prioTag(x.priority)}</div><div class="note-body">${esc(x.reason)}</div></div></div>`).join('')}
 function renderLogs(){E('log-box').textContent=(latest?.logs||[]).map(x=>`[${x.time}] ${x.message}`).join('\n')||'暂无日志'}
+function renderCleanupResult(){
+ const result=latest?.last_cleanup;const element=E('cleanup-result');
+ element.classList.toggle('hide',!result);
+ if(!result)return;
+ const totals=result.totals||{},disk=result.disk_comparison||{};
+ E('result-logical').textContent=`${Number(totals.deleted||0).toLocaleString('zh-CN')} 个 · ${fmt(totals.bytes)}`;
+ E('result-before').textContent=disk.available?fmt(disk.before_free):'无法读取';
+ const delta=disk.net_free_change;
+ E('result-delta').textContent=disk.available?(delta>=0?'+':'−')+fmt(Math.abs(delta)):'无法测量';
+ E('result-note').textContent=`${result.at||''} · ${result.aborted?'用户中止 · ':''}跳过 ${Number(totals.skipped||0)} 项，错误 ${Number(totals.errors||0)} 项。`+
+ (disk.available?`清理后可用 ${fmt(disk.after_free)}；C 盘净变化受同期其他程序读写影响，不保证等于实际清理量。`:'无法获取一致的 C 盘前后测量值；文件删除计数和逻辑大小仍可参考。');
+}
 function draw(){if(!latest)return;const d=latest.disk||{},rows=latest.items||[],g=rows.filter(x=>x.allowed&&x.risk==='green'),a=rows.filter(x=>x.allowed&&x.risk==='amber');E('m-free').textContent=d.total?fmt(d.free):'不可用';E('m-percent').textContent=d.total?`总容量 ${fmt(d.total)} · 已使用 ${Math.round(d.used/d.total*100)}%`:'无法取得 C 盘用量';E('m-green').textContent=fmt(g.reduce((v,x)=>v+x.size,0));E('m-green-foot').textContent=`${g.length} 项 · 默认推荐`;E('m-amber').textContent=fmt(a.reduce((v,x)=>v+x.size,0));E('m-amber-foot').textContent=`${a.length} 项 · 主动选择`;E('m-count').textContent=rows.reduce((n,x)=>n+x.count,0).toLocaleString();E('m-count-foot').textContent=`${rows.length} 个已识别目录目标`;const percent=d.total?Math.round(d.used/d.total*100):0;E('disk-usage-bar').style.width=percent+'%';E('disk-usage-track').setAttribute('aria-valuenow',String(percent));E('disk-usage-note').textContent=d.total?('已使用 '+percent+'%'):'待检测';
  const busy=latest.busy;E('task-dot').classList.toggle('busy',busy);E('task-msg').textContent=latest.message||'';const pct=Math.max(0,Math.min(100,Math.round((latest.progress||0)/Math.max(1,latest.progress_max||1)*100)));E('progressbar').style.width=pct+'%';E('progressnum').textContent=pct+'%';for(const b of ['btn-fast','btn-full','btn-large','btn-everything','btn-hero-fast'])E(b).disabled=busy;E('btn-stop').disabled=!busy;E('esSide').textContent='索引：'+(latest.es_status||'检测中'); if(latest.everything?.ready)E('btn-everything').textContent='重新启动/校验 Everything';
- if(lastBusy&&!busy&&rows.length>0&&!initializedChecks){selected=new Set(rows.filter(x=>x.risk==='green'&&x.allowed).map(x=>x.id));initializedChecks=true}else if(!initializedChecks&&!busy&&rows.length>0){selected=new Set(rows.filter(x=>x.risk==='green'&&x.allowed).map(x=>x.id));initializedChecks=true}
- lastBusy=busy;const ids=new Set(rows.map(x=>x.id));for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed))selected.delete(k);
- renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
+const ids=new Set(rows.map(x=>x.id));for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed))selected.delete(k);
+ renderCleanupResult();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
 async function poll(){if(pollRunning)return;pollRunning=true;try{latest=await getState();draw()}catch(e){notify('本地连接暂时失败：'+e.message)}finally{pollRunning=false}}
-E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
+E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);pendingPreview=null;updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
 E('large-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;selectedRow=row.dataset.id;selectedKind='large';renderLarge();showDetail()});
-E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);renderCache()});
+E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);pendingPreview=null;renderCache()});
 E('search-cache').addEventListener('input',renderCache);E('filter-cache').addEventListener('change',renderCache);E('search-large').addEventListener('input',renderLarge);
 document.querySelectorAll('th[data-sort]').forEach(el=>el.addEventListener('click',()=>{const field=el.dataset.sort;if(field===sortBy)sortDir=-sortDir;else{sortBy=field;sortDir=field==='size'||field==='count'?-1:1}renderCache()}));
 setInterval(poll,1100);poll();setTimeout(async()=>{try{await post('/api/scan',{mode:'fast'})}catch(e){notify('请手动点击快速扫描：'+e.message)}},550);
