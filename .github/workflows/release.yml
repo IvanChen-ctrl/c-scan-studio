@@ -90,7 +90,7 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         uses: actions/attest@v4
         with:
-          subject-path: ${{ runner.temp }}/cscan-dist/C_Scan_Studio_v3.3.1_Source.zip
+          subject-path: /tmp/cscan-dist/C_Scan_Studio_v3.3.1_Source.zip
       - name: Publish immutable v3.3.1 GitHub release
         if: steps.gate.outputs.ready == 'true'
         env:
