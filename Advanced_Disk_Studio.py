@@ -168,7 +168,7 @@ def list_large_everything(es_path, min_bytes, stop=None, limit=180, root="C:\\")
             continue
         try:
             info = os.lstat(path)
-            if not stat.S_ISREG(info.st_mode) or (getattr(info, "st_file_attributes", 0) & REPARSE):
+            if not stat.S_ISREG(info.st_mode) or ((getattr(info, "st_file_attributes", 0) or 0) & REPARSE):
                 continue
             if info.st_size < min_bytes:
                 continue
@@ -212,7 +212,7 @@ def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000
                             tick(checked)
                     try:
                         info = entry.stat(follow_symlinks=False)
-                        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & REPARSE:
+                        if stat.S_ISLNK(info.st_mode) or (getattr(info, "st_file_attributes", 0) or 0) & REPARSE:
                             continue
                         if stat.S_ISDIR(info.st_mode):
                             stack.append(Path(entry.path))
@@ -286,7 +286,7 @@ def safe_scan_target(target, age_days, stop, deadline, max_entries=180000):
                     try:
                         info = entry.stat(follow_symlinks=False)
                         if (stat.S_ISLNK(info.st_mode) or
-                                getattr(info, "st_file_attributes", 0) & REPARSE):
+                                (getattr(info, "st_file_attributes", 0) or 0) & REPARSE):
                             outcome["skipped"] += 1
                             continue
                         if stat.S_ISDIR(info.st_mode):
@@ -335,7 +335,7 @@ def still_safe_snapshot(target, item, age_days):
         latest = os.lstat(path)
     except OSError:
         return False
-    if not stat.S_ISREG(latest.st_mode) or getattr(latest, "st_file_attributes", 0) & REPARSE:
+    if not stat.S_ISREG(latest.st_mode) or (getattr(latest, "st_file_attributes", 0) or 0) & REPARSE:
         return False
     if (int(latest.st_size) != item.size or int(latest.st_mtime_ns) != item.mtime_ns or
             latest.st_mtime > time.time() - int(age_days) * 86400):
