@@ -24,3 +24,7 @@
 在新加的“构建前清单验证”中发现 Windows 的 Git 检出把大量文本文件转换为 CRLF，而 Ubuntu 保留 LF，使同一源码生成不同的 ZIP 和 SHA-256。
 
 新增仓库级 `.gitattributes`：绝大多数文本用 LF、Windows 启动 BAT/CMD 在所有平台统一为 CRLF，PNG 保持二进制。发布包同时包含该文件，SHA-256 清单覆盖它。CI 新增跨平台 ZIP 摘要对比作业，**Windows 和 Ubuntu 完全一致才算 CI 成功**。
+
+## Windows 回归触发的 HTTP 修复
+
+压力 CI 中 Windows 偶发收到 `WinError 10053`：服务端拒绝跨域 POST 时立即关闭套接字，未读取的小请求体可引发 TCP RST，让客户端看到断线而不是预期的 403。现在只对小于等于 64 KiB 的已拒绝请求进行限时（0.5 秒）丢弃读取，**不会解析、信任或执行请求体**；新增 56 次并发恶意 Origin 请求，要求始终返回 HTTP 403 且从不触发清理。
