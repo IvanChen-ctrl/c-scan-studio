@@ -23,6 +23,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Compile Python sources
         run: python -m compileall -q .
       - name: Regression tests
@@ -37,9 +40,12 @@ jobs:
           python -m unittest discover -s tests_v35
           python -m unittest discover -s tests_v352
           python -m unittest discover -s tests_v36
+          python -m unittest discover -s tests_v362
+      - name: Execute browser interaction regressions (mocked local APIs)
+        run: node tests_v362/browser_behavior.cjs
       - name: Build and check source-only release
         shell: bash
         run: |
           python scripts/build_release.py --outdir ../out
           python Security_Audit.py
-          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.1_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.2_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
