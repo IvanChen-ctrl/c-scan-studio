@@ -67,6 +67,10 @@ jobs:
         if: steps.gate.outputs.ready == 'true'
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: '22'
       - name: Re-run all regression suites
         if: steps.gate.outputs.ready == 'true'
         shell: bash
@@ -75,6 +79,9 @@ jobs:
           for suite in tests tests_v3 tests_v31 tests_v32 tests_v33 tests_v34 tests_v35 tests_v352 tests_v36 tests_v362; do
             python -m unittest discover -s "$suite"
           done
+      - name: Re-run UI behavior regression before beta publication
+        if: steps.gate.outputs.ready == 'true'
+        run: node tests_v362/browser_behavior.cjs
       - name: Build deterministic source-only beta ZIP OUTSIDE repo
         if: steps.gate.outputs.ready == 'true'
         shell: bash
