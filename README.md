@@ -180,3 +180,5 @@ Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
 [树状分类与分级建议简明手册](docs/TREE_GUIDE_CN.md)。
 
 新版界面的人体工学说明见 [v3.6 发布说明](docs/RELEASE_NOTES_v3.6.md)。
+
+此外，`v3.6.0-beta.4` 修复了多盘分析 `inventory` 阶段无法取消的问题；模拟后台任务可被停止，用户文件不受影响。
