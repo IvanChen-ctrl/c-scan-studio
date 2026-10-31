@@ -61,6 +61,20 @@ def manager_with_catalog(rows):
     return manager
 
 
+class ReleaseVersionTests(unittest.TestCase):
+    def test_runtime_frontend_and_release_versions_agree(self):
+        from scripts import build_release
+        self.assertEqual(app.VERSION, '3.6.0-beta.3')
+        self.assertEqual(build_release.VERSION, '3.6.0-beta.3')
+        html = (BASE / 'ui/dashboard.html').read_text('utf-8')
+        self.assertIn('C-Scan Studio v3.6.0-beta.3', html)
+        ci = (BASE / '.github/workflows/ci.yml').read_text('utf-8')
+        release = (BASE / '.github/workflows/release.yml').read_text('utf-8')
+        self.assertIn('tests_v363', ci)
+        self.assertIn('tests_v363', release)
+        self.assertIn('EXPECTED_TAG: v3.6.0-beta.3', release)
+        self.assertIn('tests_v363', build_release.SOURCE_DIRS)
+
 class PaginationLoadTests(unittest.TestCase):
     def test_40k_file_catalog_400_pages_do_not_repeat_16m_row_scans(self):
         rows = catalog()
