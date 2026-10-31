@@ -527,6 +527,7 @@ let view='cache', latest=null, selected=new Set(), selectedRow=null, selectedKin
 let previewPageOffset=0, previewPageRequest=0;
 let pendingPreview=null, sortBy='priority', sortDir=1, pollRunning=false;
 let connectionHealth='starting', quickNavPreviousFocus=null;
+let selectionRevision=0, previewRequestInFlight=false, cleanSubmitInFlight=false, previewPageValidated=false;
 let lastGuidanceSignature='__first__', lastAdviceSignature='__first__';
 const E=id=>document.getElementById(id);
 const fmt=n=>{n=Number(n)||0;if(n<1024)return Math.round(n)+' B';const U=['KiB','MiB','GiB','TiB'];let i=-1;do{n/=1024;i++}while(n>=1024&&i<U.length-1);return n.toFixed(n>=100?0:n>=10?1:2)+' '+U[i]};
@@ -574,10 +575,14 @@ function updateConnectionStatus(){
  const status=online?'已连接 · 本机':connectionHealth==='starting'?'正在连接本机...':'连接中断 · 暂停清理';
  if(badge.textContent!==status)badge.textContent=status;
  badge.classList.toggle('offline',!online);
- if(!online){E('btn-clean').disabled=true;E('preview-approve').disabled=true}
+ if(!online){
+  previewPageValidated=false;
+  E('btn-clean').disabled=true;E('preview-approve').disabled=true;
+  if(E('clean-preview-dialog').open)E('preview-page-state').textContent='本地连接中断。请取消并重新生成完整文件预览。';
+ }
 }
 
-async function startScan(mode){if(latest?.busy)return;selected.clear();pendingPreview=null;if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
+async function startScan(mode){if(latest?.busy)return;selected.clear();markSelectionChanged();if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
 async function setupEverything(){
  if(latest?.busy)return;
  if(!confirm('将从 voidtools 官方网站下载固定版本 Everything 与 ES CLI，并校验 SHA-256 后解压到本工具目录。\n\nEverything 启动后可能提示设置索引服务或管理员权限。\n\n不会自动安装服务、改注册表或修改系统 PATH。是否继续？'))return;
@@ -612,10 +617,19 @@ function renderToolbox(){const t=latest?.toolbox||{},py=t.python||{},every=lates
 
 function allSelected(){const byid=new Map(latest?.items?.map(x=>[x.id,x])||[]);return [...selected].map(id=>byid.get(id)).filter(x=>x&&x.allowed)}
 function selectedSize(){return allSelected().reduce((n,x)=>n+x.size,0)}
+function markSelectionChanged(){
+ selectionRevision++;
+ previewPageValidated=false;
+ if(pendingPreview){
+  const old=pendingPreview;pendingPreview=null;previewPageRequest++;
+  if(E('clean-preview-dialog').open)E('clean-preview-dialog').close();
+  post('/api/cancel-preview',{ticket:old.ticket}).catch(()=>notify('预览已失效；旧凭证会自动过期。'));
+ }
+}
 function updateSelection(){
  const list=allSelected(),total=selectedSize(),green=list.filter(x=>x.risk==='green').length,amber=list.filter(x=>x.risk==='amber').length;
  E('selected-size').textContent=fmt(total)+' / '+list.length+' 项';
- E('btn-clean').disabled=!list.length||!!latest?.busy||connectionHealth!=='online';
+ E('btn-clean').disabled=!list.length||!!latest?.busy||connectionHealth!=='online'||previewRequestInFlight||!!pendingPreview||cleanSubmitInFlight;
  const greenRows=(latest?.items||[]).filter(x=>x.allowed&&x.risk==='green');
  E('check-all-green').checked=greenRows.length>0&&greenRows.every(x=>selected.has(x.id));
  E('check-all-green').disabled=!greenRows.length||!!latest?.busy||connectionHealth!=='online';
@@ -628,6 +642,8 @@ async function loadPreviewPage(offset){
  const p=pendingPreview;if(!p)return;
  if(!Number.isInteger(offset)||offset<0)return;
  const requestId=++previewPageRequest;
+ previewPageValidated=false;
+ E('preview-approve').disabled=true;
  E('preview-page-state').textContent='正在读取文件页...';
  E('preview-prev').disabled=true;E('preview-next').disabled=true;
  try{
@@ -640,9 +656,10 @@ async function loadPreviewPage(offset){
   E('preview-page-state').textContent=`第 ${page.total?Math.floor(page.offset/50)+1:0} / ${Math.ceil(page.total/50)} 页 · 显示 ${page.files.length?page.offset+1:0}–${page.offset+page.files.length} / ${page.total.toLocaleString('zh-CN')} 个 · 凭证约剩 ${page.expires_in_seconds} 秒`;
   E('preview-prev').disabled=page.offset===0;
   E('preview-next').disabled=page.next_offset===null;
-  E('preview-approve').disabled=false;
+  previewPageValidated=connectionHealth==='online'&&Number(page.expires_in_seconds)>0;
+  E('preview-approve').disabled=!previewPageValidated;
  }catch(e){
-  if(pendingPreview===p&&requestId===previewPageRequest){E('preview-page-state').textContent='文件清单读取失败：'+e.message;E('preview-approve').disabled=true;}
+  if(pendingPreview===p&&requestId===previewPageRequest){E('preview-page-state').textContent='文件清单读取失败：'+e.message;previewPageValidated=false;E('preview-approve').disabled=true;}
  }
 }
 async function cleanSelected(){
