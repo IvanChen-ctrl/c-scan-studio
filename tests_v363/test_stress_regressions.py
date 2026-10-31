@@ -67,16 +67,19 @@ def manager_with_catalog(rows):
 class ReleaseVersionTests(unittest.TestCase):
     def test_runtime_frontend_and_release_versions_agree(self):
         from scripts import build_release
-        self.assertEqual(app.VERSION, '3.6.0-beta.3')
-        self.assertEqual(build_release.VERSION, '3.6.0-beta.3')
+        self.assertEqual(app.VERSION, '3.6.0-beta.4')
+        self.assertEqual(build_release.VERSION, '3.6.0-beta.4')
         html = (BASE / 'ui/dashboard.html').read_text('utf-8')
-        self.assertIn('C-Scan Studio v3.6.0-beta.3', html)
+        self.assertIn('C-Scan Studio v3.6.0-beta.4', html)
         ci = (BASE / '.github/workflows/ci.yml').read_text('utf-8')
         release = (BASE / '.github/workflows/release.yml').read_text('utf-8')
         self.assertIn('tests_v363', ci)
         self.assertIn('tests_v363', release)
-        self.assertIn('EXPECTED_TAG: v3.6.0-beta.3', release)
+        self.assertIn('EXPECTED_TAG: v3.6.0-beta.4', release)
         self.assertIn('tests_v363', build_release.SOURCE_DIRS)
+        self.assertIn('tests_v364', build_release.SOURCE_DIRS)
+        self.assertIn('tests_v364', ci)
+        self.assertIn('tests_v364', release)
         self.assertIn('python scripts/verify_source_manifest.py', ci)
         self.assertIn('python scripts/verify_source_manifest.py', release)
         self.assertIn('identical_source_archives:', ci)
