@@ -110,7 +110,7 @@ class PackagingTests(unittest.TestCase):
     def test_release_zip_has_no_third_party_binaries_or_private_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(0, build_release.main(['--root', str(ROOT), '--outdir', tmp]))
-            name = Path(tmp) / 'C_Scan_Studio_v3.3.1_Source.zip'
+            name = Path(tmp) / ('C_Scan_Studio_v' + build_release.VERSION + '_Source.zip')
             self.assertTrue(name.is_file())
             with zipfile.ZipFile(name) as z:
                 self.assertIsNone(z.testzip())

@@ -1,4 +1,4 @@
-# C-Scan Studio v3.3.1 / C 盘智能扫描与安全可控清理
+# C-Scan Studio v3.4.0-beta.1 / C 盘智能扫描与安全可控清理
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
@@ -7,15 +7,15 @@
 
 ## 1. 开始使用
 
-1. 从 GitHub Release 下载 `C_Scan_Studio_v3.3.1_Source.zip`，独立校验下载页提供的 SHA-256。
-2. 解压到例如 `D:\C_Scan_Studio_v3.3.1`，不要直接在 ZIP 内运行。
+1. 从 GitHub 预发布版下载 `C_Scan_Studio_v3.4.0-beta.1_Source.zip`，独立校验下载页提供的 SHA-256。
+2. 解压到例如 `D:\C_Scan_Studio_v3.4.0-beta.1`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.3.1 图形界面入口 | 说明 |
+| 操作 | v3.4.0-beta.1 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -44,7 +44,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.3.1_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.4.0-beta.1_Source.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**
@@ -74,9 +74,12 @@ python scripts/build_release.py --outdir ../cscan-dist
 - GitHub Release 只有当同一主分支提交的 Windows/Linux CI 和 CodeQL **实际成功**后才自动创建；附 SHA-256 和 GitHub Artifact Attestation。
 - 任何 GitHub 检查都不是第三方杀毒证书；VirusTotal / MetaDefender 结果必须通过外部实际扫描取得。
 
-## 8. 独立检测与固定发行版本（2026-10-31）
+## v3.4 测试版安全改进（v3.3.1 稳定版保留）
 
-- [v3.3.1 VirusTotal 文件报告](https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection)（对应 SHA-256：`d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362`）。
-- [查看安全证据与局限](docs/SECURITY_VERIFICATION_v3.3.1.md)，包括真实 Windows/Linux CI 与 CodeQL 工作流记录。
-- VirusTotal 检出数量尚未从动态页面独立核验，不能据此宣称“零病毒”。
-- 正式发行 ZIP 固定从 [已通过测试的源码提交](https://github.com/IvanChen-ctrl/c-scan-studio/commit/2f58ca3415b46a4f87915211cf970671a5d1c09a) 构建；主分支后续发布流程修复不影响该 ZIP 文件指纹。
+- **默认零勾选**：绿色缓存是推荐分类，但不自动代替用户选择。
+- **强制删除前预览**：只有已完整扫描、在白名单内且未被禁止的类别才可生成预览；服务端返回只读清理清单、样本路径和有效期 120 秒的一次性凭证。`DELETE` 不能绕过该步骤。
+- **逐文件再次核对**：预览不等于保证删除；文件元数据、进程状态和路径安全会在删除时再次检查。删除不经回收站。
+- **Everything 可信来源**：不再自动从 PATH 或其他目录运行未经本工具 SHA-256 验证的 `es.exe`。
+- **公开核验**：已有的 [v3.3.1 稳定版](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.3.1) 保持不变，新预发行版产生**新的 SHA-256**，以前的 VirusTotal 报告不能当成新版查毒结果。
+- **发布建议**：请先在 Windows 本机只读扫描测试，再进行真实删除测试。当前不能宣称经过实机验证。
+

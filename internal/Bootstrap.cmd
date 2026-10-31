@@ -6,7 +6,7 @@ set "PYTHONIOENCODING=utf-8"
 set "PYTHONUTF8=1"
 cd /d "%~dp0.."
 
-rem C: CLEANER v3.3 - Windows 10/11. Default entry opens the local GUI.
+rem C: CLEANER v3.4 beta - Windows 10/11. Default entry opens the local GUI.
 rem If Python is missing, downloads/verifies/extracts CPython embedded ZIP.
 rem No permanent PATH changes, admin privilege, conda modifications or pip.
 set "TOOL_DIR=%~dp0..\"
@@ -17,16 +17,16 @@ if not exist "%CLEANER_PY%" (
   exit /b 2
 )
 
-rem v3.3 GUI-only runtime. No legacy automatic deletion CLI modes.
+rem v3.4 GUI-only runtime. No legacy automatic deletion CLI modes.
 set "CLEAN_MODE=gui"
 set "CLEAN_ARGS="
 set "CLEANER_PY=%TOOL_DIR%Advanced_Disk_Studio.py"
 
 echo ================================================================
-echo C: CLEANER v3.3 ^| %CLEAN_MODE% mode
+echo C: CLEANER v3.4 beta ^| %CLEAN_MODE% mode
 if /i "%CLEAN_MODE%"=="safe" echo CAUTION: Disposable cache files WILL be deleted automatically.
 if /i "%CLEAN_MODE%"=="scan" echo Read-only file scan, NO deletion.
-if /i "%CLEAN_MODE%"=="gui" echo Browser GUI: read-only scan first, manual selection + double confirm to delete.
+if /i "%CLEAN_MODE%"=="gui" echo Browser GUI: read-only scan first, manual selection + server-issued preview ticket + DELETE confirmation.
 echo Existing Python/Anaconda will be reused; otherwise private CPython.
 echo ================================================================
 

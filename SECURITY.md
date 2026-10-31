@@ -41,6 +41,16 @@ secure contact channel *without disclosing the vulnerability details*.
 - CodeQL, Defender, VirusTotal and attestations are complementary evidence,
   not an official malware-free certificate.
 
-## Public v3.3.1 verification
+## v3.4 pre-release controls
 
-The submitted [VirusTotal report](https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection) identifies the same SHA-256 as the source ZIP. The detection count has not been independently fetched. [View the complete evidence report](docs/SECURITY_VERIFICATION_v3.3.1.md). This is verification evidence, not a malware-free certificate.
+No cache categories are preselected. A local session must request a server-issued
+read-only deletion preview before a fresh, single-use 120-second ticket and
+literal `DELETE` confirmation can initiate deletion. The category IDs must
+be identical to those previewed, and each file is revalidated against the
+prior snapshot before unlinking. This is not a transactional rollback system.
+
+An `es.exe` discovered on PATH is not automatically executed. Only the
+sha256-verified CLI managed by the official Everything downloader is used.
+
+This prerelease's SHA-256 will differ from v3.3.1. VirusTotal detection results
+for v3.3.1 must not be attached as a scan certification for this version.

@@ -33,3 +33,8 @@ git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/c-scan-studio.gi
 ## D. 发布隐私保护
 
 只发布源码发行包，不公开：`_runtime/`、`Tools/Official_Offline/` 中自带的第三方 ZIP、`Reports/`、`logs/`、`*.env`、个人配置、AI 模型、用户缓存以及安装器。`scripts/build_release.py` 限定固定源码目录和扩展名，不会打包额外的 EXE/ZIP。
+
+
+## v3.4.0-beta.1 测试版发布
+
+保持 v3.3.1 Release 和已有 VirusTotal 哈希不变。新的 prerelease 由 .github/workflows/release.yml 根据同一 main 提交的 CI+CodeQL 成功结果创建，ZIP 用新版本号和哈希，必须重新交给 VirusTotal 验证。请勿把测试版链接冒充稳定版。
