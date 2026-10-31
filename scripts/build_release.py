@@ -21,7 +21,7 @@ SOURCE_NAMES = frozenset({
     'Drive_Inspector.py',
     'Security_Audit.py', 'Share_Offline_Bundle.py', 'Unified_Tools.py',
     'LICENSE', 'NOTICE.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md',
-    '.gitignore',
+    '.gitignore', '.gitattributes',
 })
 SOURCE_DIRS = frozenset({
     'internal', 'ui', 'LICENSES', 'Tools', 'Runtime_Offline',
