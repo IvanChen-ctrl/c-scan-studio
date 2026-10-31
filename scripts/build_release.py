@@ -12,7 +12,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = '3.6.0-beta.3'
+VERSION = '3.6.0-beta.4'
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
@@ -26,7 +26,7 @@ SOURCE_NAMES = frozenset({
 SOURCE_DIRS = frozenset({
     'internal', 'ui', 'LICENSES', 'Tools', 'Runtime_Offline',
     'docs', 'tests', 'tests_v3', 'tests_v31', 'tests_v32', 'tests_v33',
-    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362', 'tests_v363',
+    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362', 'tests_v363', 'tests_v364',
 })
 EXCLUDES = frozenset({
     '.git', '__pycache__', '_runtime', 'Installer_Files', 'Official_Offline',

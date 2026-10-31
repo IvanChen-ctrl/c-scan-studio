@@ -48,12 +48,12 @@ class ErgonomicUiTests(unittest.TestCase):
         from sys import path
         path.insert(0,str(BASE/'scripts'))
         import build_release
-        self.assertEqual(build_release.VERSION,'3.6.0-beta.3')
+        self.assertEqual(build_release.VERSION,'3.6.0-beta.4')
         self.assertIn('tests_v36',build_release.SOURCE_DIRS)
         workflow=(BASE/'.github/workflows/ci.yml').read_text('utf-8')
         self.assertIn('python -m unittest discover -s tests_v36',workflow)
         release=(BASE/'.github/workflows/release.yml').read_text('utf-8')
-        self.assertIn('EXPECTED_TAG: v3.6.0-beta.3',release)
+        self.assertIn('EXPECTED_TAG: v3.6.0-beta.4',release)
         self.assertIn('CodeQL',release)
 
     def test_illustrations_are_labeled_demo(self):

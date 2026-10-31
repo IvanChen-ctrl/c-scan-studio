@@ -39,7 +39,7 @@ class Beta2Tests(unittest.TestCase):
   import sys
   sys.path.insert(0,str(ROOT/'scripts'))
   import build_release
-  self.assertEqual(build_release.VERSION,'3.6.0-beta.3')
+  self.assertEqual(build_release.VERSION,'3.6.0-beta.4')
   self.assertIn('tests_v362',build_release.SOURCE_DIRS)
-  self.assertIn('v3.6.0-beta.3',(ROOT/'.github/workflows/release.yml').read_text('utf-8'))
+  self.assertIn('v3.6.0-beta.4',(ROOT/'.github/workflows/release.yml').read_text('utf-8'))
 if __name__=='__main__':unittest.main()

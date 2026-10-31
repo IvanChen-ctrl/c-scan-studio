@@ -45,6 +45,7 @@ jobs:
           python -m unittest discover -s tests_v36
           python -m unittest discover -s tests_v362
           python -m unittest discover -s tests_v363
+          python -m unittest discover -s tests_v364
       - name: Execute browser interaction regressions (mocked local APIs)
         run: node tests_v362/browser_behavior.cjs
       - name: Build and check source-only release
@@ -52,17 +53,17 @@ jobs:
         run: |
           python scripts/build_release.py --outdir ../out
           python Security_Audit.py
-          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.3_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.4_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
       - name: Copy source digest into workspace for artifact upload
         shell: bash
         run: |
           mkdir -p artifact_digests
-          cp ../out/C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt artifact_digests/
+          cp ../out/C_Scan_Studio_v3.6.0-beta.4_Source.zip.sha256.txt artifact_digests/
       - name: Upload source ZIP digest for cross-platform comparison
         uses: actions/upload-artifact@v4
         with:
           name: source-digest-${{ matrix.os }}
-          path: artifact_digests/C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt
+          path: artifact_digests/C_Scan_Studio_v3.6.0-beta.4_Source.zip.sha256.txt
           if-no-files-found: error
           retention-days: 7
 

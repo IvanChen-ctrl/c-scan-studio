@@ -309,10 +309,15 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
     for root in roots:
         root = Path(root)
         root_abs = os.path.abspath(root)
-        if root_abs in seen_roots or not root.is_dir() or is_reparse(os.lstat(root)):
+        if root_abs in seen_roots or not root.is_dir():
+            raise ValueError('磁盘路径失效、重复或为符号链接/联接点')
+        root_info = os.lstat(root)
+        if not stat.S_ISDIR(root_info.st_mode) or is_reparse(root_info):
             raise ValueError('磁盘路径失效、重复或为符号链接/联接点')
         seen_roots.add(root_abs)
-        stack.append((root, root_abs))
+        # Capture a queued directory's device/inode. Directory entries may
+        # change while a long read-only inventory is running.
+        stack.append((root, root_abs, (int(root_info.st_dev), int(root_info.st_ino))))
     class_stats = defaultdict(lambda: {'count': 0, 'bytes': 0, 'samples': []})
     volume_counts = Counter()
     last_scan_update_at, last_scan_update_count = start, 0
@@ -323,7 +328,23 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
         if len(files) >= max_files or time.monotonic() >= scan_deadline:
             incomplete = True
             break
-        folder, volume = stack.pop()
+        folder, volume, queued_identity = stack.pop()
+        try:
+            current = os.lstat(folder)
+            if (not stat.S_ISDIR(current.st_mode) or is_reparse(current) or
+                    int(current.st_dev) != queued_identity[0] or
+                    (queued_identity[1] and current.st_ino and
+                     int(current.st_ino) != queued_identity[1])):
+                # A queued folder may have been replaced by a junction,
+                # symlink, or different directory. Fail closed rather than
+                # traversing outside the selected root.
+                denied += 1
+                continue
+        except OSError:
+            # Disconnected media or vanished directories are incomplete, not
+            # silently successful scans.
+            denied += 1
+            continue
         try:
             with os.scandir(folder) as stream:
                 for candidate in stream:
@@ -345,7 +366,8 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
                             if candidate.name.casefold() in PROTECTED_DIRS:
                                 skipped += 1
                                 continue
-                            stack.append((Path(candidate.path), volume))
+                            stack.append((Path(candidate.path), volume,
+                                          (int(info.st_dev), int(info.st_ino))))
                         elif stat.S_ISREG(info.st_mode):
                             # Additional hardlink names are NOT another reclaimable copy.
                             identity = (int(info.st_dev), int(info.st_ino))
