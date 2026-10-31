@@ -90,7 +90,9 @@ class ScannerSnapshotTests(unittest.TestCase):
             self.assertEqual(len(report['hierarchy']),2)
             self.assertEqual({x['subtype'] for x in report['classified_files']},
                              {'raster','design','weights'})
-            self.assertEqual({x['volume'] for x in report['classified_files']},{str(folder.resolve())})
+            self.assertEqual(len({x['volume'] for x in report['classified_files']}), 1)
+            self.assertTrue(all(os.path.samefile(x['volume'], folder)
+                                for x in report['classified_files']))
             self.assertEqual((folder/'file.psd').read_bytes(),b'b'*2070)
 
     def test_bounded_filtered_file_pagination(self):
