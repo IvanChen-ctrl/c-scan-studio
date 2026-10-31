@@ -1,21 +1,38 @@
-# C-Scan Studio v3.5.2-beta.1 / C 盘安全清理与多磁盘查重分类
+# C-Scan Studio v3.6.0-beta.1 / Windows 安全空间管理与多盘只读分类
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
 > 这是磁盘扫描与缓存清理工具，不是杀毒软件，也没有“官方无毒认证”。
 > 默认只有只读扫描；清理需选中白名单项目、预览提示并键入 `DELETE`。
 
+
+## v3.6 新界面设计 · 截图反馈（模拟数据）
+
+本版本保留原清理与多盘分类引擎，专门把主界面改成**一项主要行动 + 三项次要建议**，减少长期显示的大段文字。
+
+![v3.6 桌面驾驶舱](docs/screenshots/v3.6_overview_desktop_DEMO.png)
+
+![v3.6 手机端清理卡片](docs/screenshots/v3.6_mobile_cards_DEMO.png)
+
+![v3.6 分级建议](docs/screenshots/v3.6_guidance_desktop_DEMO.png)
+
+截图使用模拟文件与磁盘数字，不是任何用户电脑的扫描结果。
+
+本版本增加了：① 可展开的安全机制说明；② 任务导航面包屑；③ 舒适/紧凑密度切换；④ 手机上保留文字导航；⑤ 移动端每个清理候选以独立卡片显示，安全复选框和详情入口可用；⑥ 多盘扫描的“选择磁盘 / 分类 / 重复组”快捷步骤栏。
+
+**默认零勾选、清理前的限时预览凭证和 `DELETE`、多盘只读保护，全部保留。** 当前仍为 Beta，没有完成你的 Windows 电脑实机清理验证，也没有本版本的独立 VirusTotal 检测报告。
+
 ## 1. 开始使用
 
-1. 下载此版本的 `C_Scan_Studio_v3.5.2-beta.1_Source.zip`（本轮独立源码 ZIP；GitHub 预发布通过 CI 后另行提供正式附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
-2. 解压到例如 `D:\C_Scan_Studio_v3.5.2-beta.1`，不要直接在 ZIP 内运行。
+1. 下载此版本的 `C_Scan_Studio_v3.6.0-beta.1_Source.zip`（独立版本；通过 CI 后 GitHub 会生成自己的发行附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
+2. 解压到例如 `D:\C_Scan_Studio_v3.6.0-beta.1`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.5.2-beta.1 图形界面入口 | 说明 |
+| 操作 | v3.6.0-beta.1 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -129,3 +146,5 @@ Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
 - 详情见 [v3.5.2 发布说明](docs/RELEASE_NOTES_v3.5.2.md)。
 
 [树状分类与分级建议简明手册](docs/TREE_GUIDE_CN.md)。
+
+新版界面的人体工学说明见 [v3.6 发布说明](docs/RELEASE_NOTES_v3.6.md)。
