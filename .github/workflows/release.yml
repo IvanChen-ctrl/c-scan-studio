@@ -1,40 +1,89 @@
 name: Release source + provenance
+# Public release requires success from both CI tests (Windows + Linux) and CodeQL
+# for exactly the same main-branch commit. No release on pull request code.
 on:
-  push:
-    tags: ['v3.3.*']
+  workflow_run:
+    workflows: ['CI tests', 'CodeQL']
+    types: [completed]
+  workflow_dispatch:
 permissions:
   contents: write
+  actions: read
   id-token: write
   attestations: write
   artifact-metadata: write
+concurrency:
+  group: publish-v3.3.1
+  cancel-in-progress: false
 jobs:
   publish:
-    if: github.repository_visibility == 'public'
+    if: >-
+      github.repository_visibility == 'public' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Require successful CI and CodeQL for same commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100" > "$RUNNER_TEMP/cscan_runs.json"
+          ci=$(jq -r --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CI tests" and .conclusion=="success")] | length' "$RUNNER_TEMP/cscan_runs.json")
+          codeql=$(jq -r --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CodeQL" and .conclusion=="success")] | length' "$RUNNER_TEMP/cscan_runs.json")
+          if [[ "$ci" -lt 1 || "$codeql" -lt 1 ]]; then
+            echo "Waiting for real successful CI + CodeQL results for $TARGET_SHA (CI=$ci CodeQL=$codeql)."
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Both checks passed for $TARGET_SHA"
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          ref: ${{ steps.gate.outputs.target_sha }}
+          persist-credentials: false
       - uses: actions/setup-python@v6
+        if: steps.gate.outputs.ready == 'true'
         with:
           python-version: '3.13'
-      - name: Run security regressions
+      - name: Re-test source before publishing
+        if: steps.gate.outputs.ready == 'true'
         shell: bash
         run: |
           for suite in tests tests_v3 tests_v31 tests_v32 tests_v33; do python -m unittest discover -s "$suite"; done
       - name: Build exact source-only archive and SHA-256
+        if: steps.gate.outputs.ready == 'true'
         run: python scripts/build_release.py --outdir dist
       - name: Verify local manifest
+        if: steps.gate.outputs.ready == 'true'
         run: python Security_Audit.py
       - name: Generate signed provenance attestation
+        if: steps.gate.outputs.ready == 'true'
         uses: actions/attest@v4
         with:
-          subject-path: dist/C_Scan_Studio_v3.3_Source.zip
-      - name: Publish GitHub release
+          subject-path: dist/C_Scan_Studio_v3.3.1_Source.zip
+      - name: Publish immutable v3.3.1 GitHub release
+        if: steps.gate.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.gate.outputs.target_sha }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/C_Scan_Studio_v3.3_Source.zip \
-            dist/C_Scan_Studio_v3.3_Source.zip.sha256.txt \
-            --title "C-Scan Studio $GITHUB_REF_NAME" \
+          set -euo pipefail
+          if gh release view v3.3.1 >/dev/null 2>&1; then
+            echo 'v3.3.1 already exists; leaving existing artifacts unchanged.'
+            exit 0
+          fi
+          gh release create v3.3.1 \
+            dist/C_Scan_Studio_v3.3.1_Source.zip \
+            dist/C_Scan_Studio_v3.3.1_Source.zip.sha256.txt \
+            --target "$TARGET_SHA" \
+            --title 'C-Scan Studio v3.3.1 - Windows UTF-8 safety hotfix' \
             --notes-file docs/RELEASE_NOTES_v3.3.md

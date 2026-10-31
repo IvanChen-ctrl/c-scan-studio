@@ -1,4 +1,8 @@
 name: CI tests
+# Windows GitHub runners may default to cp1252 even when the source is UTF-8.
+env:
+  PYTHONIOENCODING: 'utf-8'
+  PYTHONUTF8: '1'
 on:
   push:
     branches: [main]
@@ -15,7 +19,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -34,4 +38,4 @@ jobs:
         run: |
           python scripts/build_release.py --outdir ../out
           python Security_Audit.py
-          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.3_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.3.1_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"

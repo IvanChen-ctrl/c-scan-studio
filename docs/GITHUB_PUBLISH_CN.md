@@ -4,12 +4,12 @@
 
 ## A. 推荐：直接让脚本创建公开仓库（不要提前在网页新建同名仓库）
 
-1. 先登录 GitHub 账户，确认将要使用的账号。**不要先在网页创建 `c-scan-studio` 仓库**，发布器将负责创建。
+1. 先登录 GitHub 账户，确认将要使用的账号。若已经拥有 `c-scan-studio` 仓库，请直接使用 B 节的现有仓库流程，不必创建新仓库。
 2. 安装 Git for Windows 与 GitHub CLI（https://cli.github.com/），在 Windows PowerShell 中运行 `gh auth login`，通过浏览器完成身份验证。**不要**把 token 给任何人，也不要写入脚本。
 3. 将本 ZIP 解压到新目录，在该目录内打开 PowerShell，运行 `./scripts/Publish_With_GitHub_CLI.ps1`。如因 Windows 文件来源标记阻止脚本，请先核对源码和签名，了解警告原因再自行决定是否解除单个文件的阻止；不要全局关闭 PowerShell 安全设置。
 4. 检查屏幕列出的 **即将公开的文件名**。输入大写 `PUBLISH` 后，脚本才会执行提交与 `gh repo create c-scan-studio --public --source . --remote origin --push`。
 5. 在仓库 **Actions** 栏查看 `CI tests`、`CodeQL`；在 **Settings → Security** 查看 Dependabot 与 Secret scanning 是否已启用。工作流未真实运行前不要使用“已验证”徽章。
-6. 测试成功后，在本地执行 `git tag v3.3.0` 和 `git push origin v3.3.0`，触发 `Release source + provenance`，生成 ZIP、SHA-256、来源证明、GitHub Release。必须检查工作流结果。
+6. v3.3.1 采用自动发行：当 **同一 main 提交**的 Windows/Linux CI 与 CodeQL 均真实成功后，`Release source + provenance` 工作流会生成 `v3.3.1` Release、ZIP、SHA-256 及构建来源证明。不要为了绕过失败检查而手动打 tag。
 7. 把发布版 Release URL、SHA-256 和手动获得的 VirusTotal / MetaDefender 报告 URL 发给朋友。每次版本更新都要重新检测。
 
 ## B. 如果已经在网页创建了同名仓库

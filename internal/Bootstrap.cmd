@@ -1,6 +1,9 @@
 ﻿@echo off
 setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul 2>nul
+rem Force reliable Chinese console text on Windows code pages such as cp1252.
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONUTF8=1"
 cd /d "%~dp0.."
 
 rem C: CLEANER v3.3 - Windows 10/11. Default entry opens the local GUI.

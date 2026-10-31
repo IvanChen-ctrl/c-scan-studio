@@ -89,6 +89,17 @@ class SingleEntryAndSafetyTests(unittest.TestCase):
         self.assertIn('(3,10) <= sys.version_info[:2]', cmd)
         self.assertIn('if exist "%%D:', cmd)
 
+    def test_windows_launch_uses_utf8_even_on_cp1252(self):
+        launcher = (ROOT / 'internal/Bootstrap.cmd').read_text(encoding='utf-8-sig')
+        self.assertIn('set "PYTHONIOENCODING=utf-8"', launcher)
+        self.assertIn('set "PYTHONUTF8=1"', launcher)
+
+    def test_ci_forces_utf8_on_both_operating_systems(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        self.assertIn("PYTHONIOENCODING: 'utf-8'", workflow)
+        self.assertIn("PYTHONUTF8: '1'", workflow)
+        self.assertIn('windows-latest', workflow)
+
     def test_security_manifest_disclaimer_remains_honest(self):
         s = (ROOT / 'Security_Audit.py').read_text(encoding='utf-8')
         self.assertIn('未列入清单的新增文件不在本检查范围', s)
@@ -99,7 +110,7 @@ class PackagingTests(unittest.TestCase):
     def test_release_zip_has_no_third_party_binaries_or_private_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(0, build_release.main(['--root', str(ROOT), '--outdir', tmp]))
-            name = Path(tmp) / 'C_Scan_Studio_v3.3_Source.zip'
+            name = Path(tmp) / 'C_Scan_Studio_v3.3.1_Source.zip'
             self.assertTrue(name.is_file())
             with zipfile.ZipFile(name) as z:
                 self.assertIsNone(z.testzip())

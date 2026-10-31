@@ -909,7 +909,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.3 - Windows 本地可视化磁盘分析器")
+    print("C-Scan Studio v3.3.1 - Windows 本地可视化磁盘分析器")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")

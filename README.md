@@ -1,4 +1,4 @@
-# C-Scan Studio v3.3 / C 盘智能扫描与安全可控清理
+# C-Scan Studio v3.3.1 / C 盘智能扫描与安全可控清理
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
@@ -7,15 +7,15 @@
 
 ## 1. 开始使用
 
-1. 从 GitHub Release 下载 `C_Scan_Studio_v3.3_Source.zip`，独立校验下载页提供的 SHA-256。
-2. 解压到例如 `D:\C_Scan_Studio_v3.3`，不要直接在 ZIP 内运行。
+1. 从 GitHub Release 下载 `C_Scan_Studio_v3.3.1_Source.zip`，独立校验下载页提供的 SHA-256。
+2. 解压到例如 `D:\C_Scan_Studio_v3.3.1`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.3 图形界面入口 | 说明 |
+| 操作 | v3.3.1 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -44,7 +44,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.3_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.3.1_Source.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**
@@ -67,3 +67,9 @@ python scripts/build_release.py --outdir dist
 ## 6. 尚未完成的真实验证
 
 本项目在隔离环境执行回归测试，但**不宣称已在你的 Windows 电脑上通过真实文件清理、Defender 检测或 Everything 索引联调**。GitHub Actions 绿色状态与病毒扫描 URL 只有在真实执行后才可以公开引用。
+
+## 7. v3.3.1 Windows encoding hotfix
+
+- Windows 启动 BAT 和 GitHub CI 强制使用 UTF-8，避免在 cp1252 控制台输出中文时异常退出。
+- GitHub Release 只有当同一主分支提交的 Windows/Linux CI 和 CodeQL **实际成功**后才自动创建；附 SHA-256 和 GitHub Artifact Attestation。
+- 任何 GitHub 检查都不是第三方杀毒证书；VirusTotal / MetaDefender 结果必须通过外部实际扫描取得。

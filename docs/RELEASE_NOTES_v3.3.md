@@ -1,4 +1,4 @@
-# C-Scan Studio v3.3.0
+# C-Scan Studio v3.3.1
 
 ## 统一控制台
 
@@ -16,3 +16,10 @@
 ## 限制
 
 Everything、ES CLI 和 Python 便携运行时在默认源码发行包中不包含二进制，首次使用可能联网下载并核验。尚未在用户 Windows 电脑上验证真实运行或得到任何第三方病毒扫描证书。
+
+## v3.3.1 Windows hotfix
+
+- Fixed UnicodeEncodeError for Chinese text on legacy Windows CI consoles (cp1252) using UTF-8 console environment.
+- Added two regression tests; pinned source-only package version to v3.3.1.
+- Release publication is gated on CI (Windows + Linux) and CodeQL success at the same commit.
+- Third-party antivirus tests remain independent and not implied by CI success.

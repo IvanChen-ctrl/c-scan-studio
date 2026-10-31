@@ -12,9 +12,9 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = '3.3.0'
+VERSION = '3.3.1'
 ROOT = Path(__file__).resolve().parents[1]
-PREFIX = f'C_Scan_Studio_v{VERSION.rsplit(".", 1)[0]}'
+PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
     '00_启动C-Scan智能清理与安全中心.bat', 'Advanced_Disk_Studio.py',
     'C_Drive_Cleanup.py', 'Everything_Official_Manager.py',
@@ -99,7 +99,7 @@ def main(argv=None):
     # Keep root's manifest current for local GUI; never rely on it as a trust anchor.
     (root / 'FILE_INTEGRITY_SHA256.csv').write_bytes(manifest)
     folder.mkdir(parents=True, exist_ok=True)
-    archive = folder / 'C_Scan_Studio_v3.3_Source.zip'
+    archive = folder / f'C_Scan_Studio_v{VERSION}_Source.zip'
     make_zip(files, manifest, archive)
     with zipfile.ZipFile(archive) as container:
         if container.testzip() is not None:
