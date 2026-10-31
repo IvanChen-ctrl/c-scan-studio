@@ -18,6 +18,14 @@ class Beta2Tests(unittest.TestCase):
   for x in ('id="selection-review-strip"','id="clear-selection"',"connectionHealth='offline'","E('preview-approve').disabled=true","connectionHealth!=='online'","confirm:'DELETE'"):self.assertIn(x,HTML)
   self.assertNotIn("post('/api/inspect-delete'",HTML)
   self.assertNotIn("post('/api/inspect-move'",HTML)
+  for value in ("previewRequestInFlight=true","cleanSubmitInFlight=true","selectionRevision!==revision","previewPageValidated=false","执行结果未能确认"):
+   self.assertIn(value,HTML)
+ def test_node_behavior_runner_is_wired(self):
+  self.assertTrue((ROOT/'tests_v362/browser_behavior.cjs').is_file())
+  ci=(ROOT/'.github/workflows/ci.yml').read_text('utf-8')
+  release=(ROOT/'.github/workflows/release.yml').read_text('utf-8')
+  self.assertIn('node tests_v362/browser_behavior.cjs',ci)
+  self.assertIn('node tests_v362/browser_behavior.cjs',release)
  def test_js_syntax_when_node_installed(self):
   node=shutil.which('node')
   if not node:self.skipTest('Node unavailable')
