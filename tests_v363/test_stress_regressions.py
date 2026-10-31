@@ -6,6 +6,8 @@ Windows drive is enumerated, scanned, mutated, or cleaned by these tests.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from http.server import ThreadingHTTPServer
+import http.client
 from pathlib import Path
 import hashlib
 import os
@@ -148,6 +150,43 @@ class PaginationLoadTests(unittest.TestCase):
         ]:
             self.assertFalse(manager.classified_files_page(
                 'images', offset, limit, subtype, drive)[0])
+
+
+class RejectedPostStress(unittest.TestCase):
+    def test_rejected_cross_origin_posts_return_403_without_tcp_resets(self):
+        manager = app.Analyzer()
+        server = ThreadingHTTPServer(('127.0.0.1', 0), app.LocalHandler)
+        server.session_token = 't' * 40
+        server.analyzer = manager
+        server.toolbox = app.Toolbox(log=manager._record)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            def attempt(i):
+                connection = http.client.HTTPConnection(
+                    '127.0.0.1', server.server_port, timeout=4)
+                try:
+                    content = b'{}' if i % 2 else b'{' + b' ' * 2048 + b'}'
+                    connection.request('POST', '/api/clean', body=content, headers={
+                        'Origin': 'https://untrusted.invalid',
+                        'X-CSCAN-Token': server.session_token,
+                        'Content-Type': 'application/json'})
+                    response = connection.getresponse()
+                    body = response.read()
+                    self.assertEqual(response.status, 403)
+                    self.assertIn(b'403', str(response.status).encode())
+                    self.assertTrue(body)
+                    return response.status
+                finally:
+                    connection.close()
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                self.assertEqual(list(pool.map(attempt, range(56))), [403] * 56)
+            self.assertEqual(manager.phase, 'idle')
+            self.assertIsNone(manager.cleanup_preview)
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=4)
 
 
 class ReadOnlyDiskStress(unittest.TestCase):
