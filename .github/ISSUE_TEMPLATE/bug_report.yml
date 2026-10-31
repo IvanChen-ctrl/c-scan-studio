@@ -1,0 +1,29 @@
+name: Bug report / 问题反馈
+description: Report a reproducible non-security issue without sharing personal paths.
+title: '[Bug] '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please remove usernames, tokens, private file paths and logs containing personal data.
+        For vulnerabilities use private security reporting, NOT this public form.
+  - type: input
+    id: system
+    attributes:
+      label: Windows edition and architecture
+      placeholder: Windows 11 x64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce (sanitized)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected / actual behavior
+    validations:
+      required: true

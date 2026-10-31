@@ -1,0 +1,37 @@
+name: CI tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    name: Source and safety regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Compile Python sources
+        run: python -m compileall -q .
+      - name: Regression tests
+        shell: bash
+        run: |
+          python -m unittest discover -s tests
+          python -m unittest discover -s tests_v3
+          python -m unittest discover -s tests_v31
+          python -m unittest discover -s tests_v32
+          python -m unittest discover -s tests_v33
+      - name: Build and check source-only release
+        shell: bash
+        run: |
+          python scripts/build_release.py --outdir ../out
+          python Security_Audit.py
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.3_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"

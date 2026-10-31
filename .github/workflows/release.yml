@@ -1,0 +1,40 @@
+name: Release source + provenance
+on:
+  push:
+    tags: ['v3.3.*']
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+jobs:
+  publish:
+    if: github.repository_visibility == 'public'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run security regressions
+        shell: bash
+        run: |
+          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33; do python -m unittest discover -s "$suite"; done
+      - name: Build exact source-only archive and SHA-256
+        run: python scripts/build_release.py --outdir dist
+      - name: Verify local manifest
+        run: python Security_Audit.py
+      - name: Generate signed provenance attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/C_Scan_Studio_v3.3_Source.zip
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/C_Scan_Studio_v3.3_Source.zip \
+            dist/C_Scan_Studio_v3.3_Source.zip.sha256.txt \
+            --title "C-Scan Studio $GITHUB_REF_NAME" \
+            --notes-file docs/RELEASE_NOTES_v3.3.md
