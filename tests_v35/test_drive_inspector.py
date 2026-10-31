@@ -100,8 +100,8 @@ class DriveWalkTest(unittest.TestCase):
         f(self.root/'data'/'a.png', data)
         f(self.root/'other'/'b.png', data)
         result = self.scan()
-        self.assertTrue(result['complete'])
-        self.assertEqual(result['total_duplicate_groups'], 1)
+        self.assertTrue(result['complete'], result)
+        self.assertEqual(result['total_duplicate_groups'], 1, result)
         group = result['duplicate_groups'][0]
         self.assertEqual(group['sha256'], hashlib.sha256(data).hexdigest())
         self.assertEqual(group['count'], 2)
@@ -116,7 +116,7 @@ class DriveWalkTest(unittest.TestCase):
         f(self.root/'a.mp4', data1)
         f(self.root/'b.mp4', data2)
         result = self.scan()
-        self.assertTrue(result['complete'])
+        self.assertTrue(result['complete'], result)
         self.assertEqual(result['total_duplicate_groups'], 0)
 
     def test_identical_name_not_equal_without_content(self):
@@ -133,7 +133,7 @@ class DriveWalkTest(unittest.TestCase):
         except (OSError, NotImplementedError):
             self.skipTest('hardlinks unsupported')
         result = self.scan()
-        self.assertEqual(result['files_seen'], 1)
+        self.assertEqual(result['files_seen'], 1, result)
         self.assertEqual(result['total_duplicate_groups'], 0)
         self.assertGreaterEqual(result['skipped_links_hardlinks_protected'], 1)
 
@@ -148,7 +148,7 @@ class DriveWalkTest(unittest.TestCase):
         except (OSError, NotImplementedError):
             self.skipTest('symlink unsupported')
         result = self.scan()
-        self.assertEqual(result['files_seen'], 1)
+        self.assertEqual(result['files_seen'], 1, result)
         self.assertGreaterEqual(result['skipped_links_hardlinks_protected'], 1)
 
     def test_protected_tree_ignored(self):
@@ -156,14 +156,14 @@ class DriveWalkTest(unittest.TestCase):
         f(self.root/'node_modules'/'cache.js', b'abc')
         f(self.root/'safe'/'document.pdf', b'pdf')
         result = self.scan()
-        self.assertEqual(result['files_seen'], 1)
+        self.assertEqual(result['files_seen'], 1, result)
 
     def test_protected_copy_is_read_only_and_red(self):
         data = b'A' * 1200
         f(self.root/'Backup'/'a.safetensors', data)
         f(self.root/'models'/'b.safetensors', data)
         result = self.scan()
-        self.assertEqual(result['total_duplicate_groups'], 1)
+        self.assertEqual(result['total_duplicate_groups'], 1, result)
         self.assertEqual(result['duplicate_groups'][0]['copies'][0]['risk'], 'red')
         self.assertTrue((self.root/'Backup'/'a.safetensors').exists())
 
@@ -208,7 +208,7 @@ class DriveWalkTest(unittest.TestCase):
         f(d1/'alpha.png', b'C'*10000)
         f(d2/'beta.png', b'C'*10000)
         report = d.inspect_roots([d1, d2], self.stop, min_duplicate_bytes=1)
-        self.assertEqual(report['total_duplicate_groups'], 1)
+        self.assertEqual(report['total_duplicate_groups'], 1, report)
         self.assertEqual(len(report['roots']), 2)
 
 

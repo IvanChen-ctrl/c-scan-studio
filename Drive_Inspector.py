@@ -220,7 +220,12 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
                         cancel_flag = stop.is_set()
                         break
                     try:
-                        info = candidate.stat(follow_symlinks=False)
+                        # On Windows DirEntry.stat() may expose cached/legacy
+                        # st_ino/st_nlink values that disagree with os.lstat()
+                        # and the opened file descriptor. Use one canonical
+                        # stat source for identity and hard-link accounting.
+                        info = (os.lstat(candidate.path) if os.name == 'nt' else
+                                candidate.stat(follow_symlinks=False))
                         if is_reparse(info):
                             skipped += 1
                             continue
