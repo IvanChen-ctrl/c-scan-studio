@@ -78,12 +78,18 @@ def manifest_bytes(files):
 
 
 def make_zip(files, manifest, dst):
-    with zipfile.ZipFile(dst, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=8, strict_timestamps=True) as archive:
+    # Deterministic BYTES across Ubuntu/Windows. ZipInfo.create_system
+    # otherwise varies by host, and DEFLATE output can depend on zlib builds.
+    # Source is modest in size: STORE is preferable to nondeterministic ZIPs.
+    with zipfile.ZipFile(dst, 'w', compression=zipfile.ZIP_STORED, strict_timestamps=True) as archive:
         for name, data in [*files, ('FILE_INTEGRITY_SHA256.csv', manifest)]:
             info = zipfile.ZipInfo(PREFIX + '/' + name, DATE)
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3  # Explicit Unix-format permissions, even on Windows.
+            info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=8)
+            info.extra = b''
+            info.comment = b''
+            archive.writestr(info, data, compress_type=zipfile.ZIP_STORED)
 
 
 def main(argv=None):
