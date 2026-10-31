@@ -663,14 +663,24 @@ async function loadPreviewPage(offset){
  }
 }
 async function cleanSelected(){
+ if(previewRequestInFlight||cleanSubmitInFlight||pendingPreview||E('clean-preview-dialog').open)return;
  if(connectionHealth!=='online'){notify('本地连接中断，请恢复后重新生成预览。');return}
- const rows=allSelected();if(!rows.length)return;
+ const rows=allSelected();
+ if(!rows.length)return;
  if(latest?.busy){notify('请在任务结束后重新预览。');return}
- const ids=rows.map(x=>x.id);
+ const ids=rows.map(x=>x.id),revision=selectionRevision;
+ previewRequestInFlight=true;updateSelection();
  try{
   const response=await post('/api/preview-clean',{ids});
-  const p=response.preview;if(!p?.ticket)throw Error('服务器未提供有效预览凭证');
-  pendingPreview={ticket:p.ticket,ids};
+  const p=response.preview;
+  if(!p?.ticket||!Array.isArray(p.categories))throw Error('服务器未提供有效预览凭证');
+  if(selectionRevision!==revision||connectionHealth!=='online'||latest?.busy){
+   await post('/api/cancel-preview',{ticket:p.ticket}).catch(()=>{});
+   notify('扫描、选择或连接状态已经改变；本次预览已撤销，请重新选择并预览。');
+   return;
+  }
+  pendingPreview={ticket:p.ticket,ids,revision};
+  previewPageValidated=false;
   const amber=p.categories.some(x=>x.risk==='amber');
   E('preview-metrics').textContent=`${p.categories.length} 类 · ${p.total_files.toLocaleString('zh-CN')} 个候选文件 · 预计最多 ${fmt(p.total_bytes)} · 预览凭证 ${p.expires_in_seconds} 秒内有效`;
   E('preview-rows').innerHTML=p.categories.map(x=>`<tr><td><strong>${esc(x.name)}</strong><div class="mono">${esc(x.path)}</div></td><td>${riskTag(x.risk)}</td><td class="tabular">${Number(x.files).toLocaleString()}</td><td class="tabular">${fmt(x.bytes)}</td></tr>`).join('');
@@ -679,20 +689,45 @@ async function cleanSelected(){
   E('preview-file-rows').innerHTML='<tr><td colspan="5">读取完整文件预览的第一页...</td></tr>';
   E('clean-preview-dialog').showModal();
   await loadPreviewPage(0);
- }catch(e){pendingPreview=null;alert('不能生成删除预览：'+e.message)}
+ }catch(e){
+  const old=pendingPreview;pendingPreview=null;previewPageValidated=false;previewPageRequest++;
+  if(E('clean-preview-dialog').open)E('clean-preview-dialog').close();
+  if(old)post('/api/cancel-preview',{ticket:old.ticket}).catch(()=>{});
+  alert('不能生成删除预览：'+e.message);
+ }finally{previewRequestInFlight=false;updateSelection()}
 }
-function closePreview(){const previous=pendingPreview;pendingPreview=null;previewPageOffset=0;previewPageRequest++;E('clean-preview-dialog').close();if(previous)post('/api/cancel-preview',{ticket:previous.ticket}).catch(e=>notify('预览已关闭；旧凭证会自动失效：'+e.message))}
+function closePreview(){
+ if(cleanSubmitInFlight){notify('清理请求已经提交，正在等待服务器确认。此时不能取消已发送的请求。');return}
+ const previous=pendingPreview;pendingPreview=null;previewPageValidated=false;previewPageOffset=0;previewPageRequest++;
+ if(E('clean-preview-dialog').open)E('clean-preview-dialog').close();
+ if(previous)post('/api/cancel-preview',{ticket:previous.ticket}).catch(e=>notify('预览已关闭；旧凭证会自动失效：'+e.message));
+}
 async function approvePreview(){
+ const p=pendingPreview;
+ if(cleanSubmitInFlight)return;
  if(connectionHealth!=='online'){notify('连接中断，不能执行清理；请取消并重新预览。');return}
- const p=pendingPreview;if(!p)return;
+ if(!p||!previewPageValidated||!E('clean-preview-dialog').open||p.revision!==selectionRevision||latest?.busy){
+  notify('预览未准备完成或状态已经变更，请重新生成完整预览。');return;
+ }
  const typed=prompt('最后确认：删除已预览的缓存文件不经过回收站。请输入大写 DELETE：','');
  if(typed!=='DELETE'){notify('已取消：未输入 DELETE，文件没有删除。');return}
- E('preview-approve').disabled=true;
- try{await post('/api/clean',{ids:p.ids,confirm:'DELETE',ticket:p.ticket});pendingPreview=null;E('clean-preview-dialog').close();selected.clear();notify('已开始清理已预览的项目；文件将逐个复核。')}
- catch(e){pendingPreview=null;E('clean-preview-dialog').close();alert('未执行清理：'+e.message)}
- finally{E('preview-approve').disabled=false}
+ if(connectionHealth!=='online'||p!==pendingPreview||p.revision!==selectionRevision){
+  notify('提交前连接或选择发生变化，必须重新预览。');return;
+ }
+ cleanSubmitInFlight=true;previewPageValidated=false;E('preview-approve').disabled=true;
+ try{
+  await post('/api/clean',{ids:p.ids,confirm:'DELETE',ticket:p.ticket});
+  pendingPreview=null;selected.clear();markSelectionChanged();
+  E('clean-preview-dialog').close();notify('服务端确认已开始清理已预览的项目；文件将逐个复核。');
+ }catch(e){
+  pendingPreview=null;selected.clear();markSelectionChanged();
+  E('clean-preview-dialog').close();
+  const msg='清理请求的执行结果未能确认。服务器可能已经收到请求；请先检查本地日志与磁盘变化，不要立即重试。详情：'+e.message;
+  notify(msg);alert(msg);
+ }finally{cleanSubmitInFlight=false;E('preview-approve').disabled=true;updateSelection()}
 }
-E('clean-preview-dialog').addEventListener('close',()=>{if(pendingPreview){const previous=pendingPreview;pendingPreview=null;previewPageRequest++;post('/api/cancel-preview',{ticket:previous.ticket}).catch(()=>notify('预览关闭；授权将在 120 秒内自动过期'))}});
+E('clean-preview-dialog').addEventListener('cancel',e=>{if(cleanSubmitInFlight)e.preventDefault()});
+E('clean-preview-dialog').addEventListener('close',()=>{previewPageValidated=false;if(pendingPreview){const previous=pendingPreview;pendingPreview=null;previewPageRequest++;post('/api/cancel-preview',{ticket:previous.ticket}).catch(()=>notify('预览关闭；授权将在 120 秒内自动过期'))}});
 
 async function reveal(){if(!selectedRow||!selectedKind)return;try{await post('/api/reveal',{id:selectedRow,type:selectedKind})}catch(e){alert(e.message)}}
 function showDetail(){let item;if(selectedKind==='cache')item=(latest?.items||[]).find(x=>x.id===selectedRow);if(selectedKind==='large')item=(latest?.large_files||[]).find(x=>x.id===selectedRow);if(!item){E('detail-content').innerHTML='<div class="detail-title">请选择一个项目</div><p class="soft">点击列表项目后，可以看到它的具体路径、优先级和风险说明。</p>';return}const isCache=selectedKind==='cache';E('detail-content').innerHTML=`<div class="detail-title">${esc(isCache?item.name:(item.path.split(/[\\/]/).pop()))}</div><div class="detail-tags">${prioTag(item.priority)} ${riskTag(item.risk)}</div><div class="detail-row"><div class="key">完整位置</div><div class="val mono">${esc(item.path)}</div></div><div class="detail-row"><div class="key">${isCache?'符合清理条件的文件':'文件大小'}</div><div class="val">${fmt(item.size)} ${isCache?'· '+item.count+' 个文件':''}</div></div><div class="detail-row"><div class="key">推荐理由</div><div class="val">${esc(item.reason)}</div></div>${isCache?`<div class="detail-row"><div class="key">扫描与安全限制</div><div class="val">${esc(item.note)}<br>保留最近 ${item.age_days} 天。<br>状态：${esc(item.state)}<br>${item.allowed?'允许勾选。': '禁止在此界面清理。'} </div></div>`:`<div class="detail-row"><div class="key">处理原则</div><div class="val">${esc(item.action)}<br>修改日期：${esc(item.mtime)}</div></div>`}<button class="button wide" id="btn-reveal" style="margin-top:14px" onclick="reveal()">在文件资源管理器中打开</button>`;
@@ -784,7 +819,7 @@ function renderCleanupResult(){
 }
 function draw(){if(!latest)return;const d=latest.disk||{},rows=latest.items||[],g=rows.filter(x=>x.allowed&&x.risk==='green'),a=rows.filter(x=>x.allowed&&x.risk==='amber');E('m-free').textContent=d.total?fmt(d.free):'不可用';E('m-percent').textContent=d.total?`总容量 ${fmt(d.total)} · 已使用 ${Math.round(d.used/d.total*100)}%`:'无法取得 C 盘用量';E('m-green').textContent=fmt(g.reduce((v,x)=>v+x.size,0));E('m-green-foot').textContent=`${g.length} 项 · 默认推荐`;E('m-amber').textContent=fmt(a.reduce((v,x)=>v+x.size,0));E('m-amber-foot').textContent=`${a.length} 项 · 主动选择`;E('m-count').textContent=rows.reduce((n,x)=>n+x.count,0).toLocaleString();E('m-count-foot').textContent=`${rows.length} 个已识别目录目标`;const percent=d.total?Math.round(d.used/d.total*100):0;E('disk-usage-bar').style.width=percent+'%';E('disk-usage-track').setAttribute('aria-valuenow',String(percent));E('disk-usage-note').textContent=d.total?('已使用 '+percent+'%'):'待检测';
  const busy=latest.busy;E('task-dot').classList.toggle('busy',busy);E('task-msg').textContent=latest.message||'';const pct=Math.max(0,Math.min(100,Math.round((latest.progress||0)/Math.max(1,latest.progress_max||1)*100)));E('progressbar').style.width=pct+'%';E('progressnum').textContent=pct+'%';for(const b of ['btn-fast','btn-full','btn-large','btn-everything','btn-hero-fast'])E(b).disabled=busy;E('btn-stop').disabled=!busy;E('esSide').textContent='索引：'+(latest.es_status||'检测中'); if(latest.everything?.ready)E('btn-everything').textContent='重新启动/校验 Everything';
-const ids=new Set(rows.map(x=>x.id));for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed))selected.delete(k);
+const ids=new Set(rows.map(x=>x.id));let pruned=false;for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed)){selected.delete(k);pruned=true}if(pruned)markSelectionChanged();
  renderCleanupResult();renderDecisionHub();renderDriveChoices();renderInspection();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
 
 // Multi-disk inspection is read-only. There are deliberately no delete/move calls.
@@ -854,10 +889,10 @@ function renderInspection(){
 
 async function poll(){if(pollRunning)return;pollRunning=true;try{latest=await getState();connectionHealth='online';draw();updateConnectionStatus()}catch(e){connectionHealth='offline';notify('本地连接暂时失败：'+e.message);updateConnectionStatus()}finally{pollRunning=false}}
 E('cache-mobile-cards').addEventListener('click',e=>{const card=e.target.closest('article[data-id]');if(!card)return;const id=card.dataset.id;
- if(e.target.matches('input[data-mobile-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);pendingPreview=null;renderCache();return;}
+ if(e.target.matches('input[data-mobile-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);markSelectionChanged();renderCache();return;}
  if(e.target.closest('[data-mobile-detail]')){selectedRow=id;selectedKind='cache';showDetail();const panel=E('detail-panel');panel.classList.remove('hide');panel.scrollIntoView({behavior:'smooth',block:'start'});return;}
 });
-E('clear-selection').addEventListener('click',()=>{if(pendingPreview)return;selected.clear();renderCache();notify('已清空选择；没有删除文件。')});
+E('clear-selection').addEventListener('click',()=>{if(pendingPreview)return;selected.clear();markSelectionChanged();renderCache();notify('已清空选择；没有删除文件。')});
 E('quicknav-input').addEventListener('input',renderQuickNav);
 E('quicknav-dialog').addEventListener('close',()=>{if(quickNavPreviousFocus?.isConnected)quickNavPreviousFocus.focus();quickNavPreviousFocus=null});
 document.addEventListener('keydown',e=>{
@@ -867,9 +902,9 @@ document.addEventListener('keydown',e=>{
  if(shortcut||slash){if(E('clean-preview-dialog').open)return;e.preventDefault();if(E('quicknav-dialog').open)closeQuickNav();else openQuickNav();return}
  if(e.key==='Enter'&&E('quicknav-dialog').open&&document.activeElement===E('quicknav-input')){e.preventDefault();E('quicknav-list').querySelector('.quicknav-item')?.click()}
 });
-E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);pendingPreview=null;updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
+E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);markSelectionChanged();updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
 E('large-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;selectedRow=row.dataset.id;selectedKind='large';renderLarge();showDetail()});
-E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);pendingPreview=null;renderCache()});
+E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);markSelectionChanged();renderCache()});
 E('goal-select').addEventListener('change',()=>{lastAdviceSignature='__changed__';renderAdvice();});
 E('search-cache').addEventListener('input',renderCache);E('filter-cache').addEventListener('change',renderCache);E('search-large').addEventListener('input',renderLarge);
 document.querySelectorAll('th[data-sort]').forEach(el=>el.addEventListener('click',()=>{const field=el.dataset.sort;if(field===sortBy)sortDir=-sortDir;else{sortBy=field;sortDir=field==='size'||field==='count'?-1:1}renderCache()}));
