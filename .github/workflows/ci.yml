@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify tracked source manifest before build (read-only)
+        run: python scripts/verify_source_manifest.py
       - name: Compile Python sources
         run: python -m compileall -q .
       - name: Regression tests
