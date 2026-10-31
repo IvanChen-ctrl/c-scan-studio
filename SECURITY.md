@@ -26,7 +26,8 @@ secure contact channel *without disclosing the vulnerability details*.
 
 | Branch | Status |
 | --- | --- |
-| 3.3.x | Current source line; fix security issues here |
+| 3.3.1 | Latest stable release; use its own ZIP hash and reports |
+| 3.4.0-beta.2 | Testing pre-release; not validated for real Windows deletion |
 | 3.2.x and earlier | Historical; upgrade advised |
 
 ## Trust and limitations
@@ -60,3 +61,9 @@ for v3.3.1 must not be attached as a scan certification for this version.
 The `/api/preview-files` endpoint shows up to 100 read-only snapshot paths per request, but only for the currently selected categories, with a valid single-use cleanup ticket and authenticated loopback origin. This is not arbitrary disk browsing. Files are not re-opened or uploaded. An expired, canceled or consumed ticket cannot be used to list files. The browser defaults to 50 rows per page.
 
 The after-clean disk-space delta is a **net observed change** (background disk activity can increase or decrease it) and is not a verified measure of the cleaner's exclusive effect. The source has not undergone real Windows-drive deletion testing.
+
+## Published beta.2 evidence and limitations
+
+The GitHub [v3.4.0-beta.2 pre-release](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.4.0-beta.2) has SHA-256 `dc9d63c1e85ae7a7ffb28e3cc695e1c3a2976c0d7b83f9cd76bbf1397e9bee66` and a distinct [GitHub attestation](https://github.com/IvanChen-ctrl/c-scan-studio/attestations/62151837). CI and CodeQL workflows completed for the release source. See [beta.2 verification evidence](docs/SECURITY_VERIFICATION_v3.4.0-beta.2.md).
+
+**No VirusTotal count or zero-detection claim exists for beta.2 here.** Beta source ZIP is not an antivirus-certified executable. Real Windows cleanup, removable-file races, third-party Everything IPC and Microsoft Defender scanning on the user's computer have not been independently validated. Avoid any automatic deletion until a separate Windows safety check is done.

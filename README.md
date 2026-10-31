@@ -7,7 +7,7 @@
 
 ## 1. 开始使用
 
-1. 从 PR #3 对应的测试包下载 `C_Scan_Studio_v3.4.0-beta.2_Source.zip` 并核对独立 SHA-256；正式 GitHub 预发布版需经 GitHub 检查及发布后才会出现。
+1. [从 GitHub 正式 beta.2 预发布页下载](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.4.0-beta.2) `C_Scan_Studio_v3.4.0-beta.2_Source.zip`，核对 SHA-256 `dc9d63c1e85ae7a7ffb28e3cc695e1c3a2976c0d7b83f9cd76bbf1397e9bee66`；**不要混用 PR 合并前同名的测试 ZIP**。
 2. 解压到例如 `D:\C_Scan_Studio_v3.4.0-beta.2`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
@@ -59,6 +59,7 @@ python -m unittest discover -s tests_v3
 python -m unittest discover -s tests_v31
 python -m unittest discover -s tests_v32
 python -m unittest discover -s tests_v33
+python -m unittest discover -s tests_v34
 python scripts/build_release.py --outdir ../cscan-dist
 ```
 
@@ -93,3 +94,12 @@ python scripts/build_release.py --outdir ../cscan-dist
 - 注意：仅通过模拟测试、GitHub CI 和代码扫描的情况，不能代替在真实 Windows 系统上的清理测试。
 
 Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
+
+## 已发布版本与第三方安全核验（2026-10-31）
+
+- **[稳定版 v3.3.1](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.3.1)**：保留先前的 VirusTotal 文件报告，适合未参与测试的朋友先使用只读扫描。
+- **[预发布 v3.4.0-beta.2](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.4.0-beta.2)**：发行 ZIP 的 SHA-256 是 `dc9d63c1e85ae7a7ffb28e3cc695e1c3a2976c0d7b83f9cd76bbf1397e9bee66`，为 **GitHub Release 附件**而不是任何同名的预合并测试包。
+- [beta.2 的独立验证记录](docs/SECURITY_VERIFICATION_v3.4.0-beta.2.md)列出了真实 CI、CodeQL、构建证明、重建结果和未完成的病毒扫描。
+- [给朋友的安全核验手册](docs/FRIENDS_VERIFY_CN.md)提供哈希校验、GitHub 构建证明及可选第三方病毒扫描步骤。
+- beta.2 **尚无已独立核实的 VirusTotal 报告，也没有真实 Windows 清理验收**；旧版 v3.3.1 的检测记录不能用于 beta.2。
+- 此后更新的 `main` 包含文档变更，重新构建的 ZIP SHA-256 可能变化；请以**固定的 Release 附件**作为独立检测和对外分享对象。
