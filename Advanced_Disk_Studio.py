@@ -1076,7 +1076,7 @@ def csv_bytes(report):
 
 
 class LocalHandler(BaseHTTPRequestHandler):
-    server_version = "CScanLocal/3.5"
+    server_version = "CScanLocal/3.6"
 
     def log_message(self, fmt, *args):
         # Avoid leaking the random token into logs.
@@ -1156,9 +1156,31 @@ class LocalHandler(BaseHTTPRequestHandler):
         else:
             self._answer(404, {"error": "找不到页面"})
 
+    def _discard_small_rejected_post_body(self):
+        """Bounded drain prevents WinSock TCP reset on a rejected POST.
+
+        Closing a socket while its small request body remains unread can
+        produce WinError 10053 instead of the intended HTTP 403 on Windows.
+        Never parse an unauthorized body or wait unboundedly for its bytes.
+        """
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if size < 0 or size > MAX_JSON:
+                return
+            if size:
+                previous = self.connection.gettimeout()
+                self.connection.settimeout(0.5)
+                try:
+                    self.rfile.read(size)
+                finally:
+                    self.connection.settimeout(previous)
+        except (ValueError, OSError):
+            pass
+
     def do_POST(self):
         parsed = urllib.parse.urlsplit(self.path)
         if not self._authorized(parsed, require_header=True):
+            self._discard_small_rejected_post_body()
             return self._answer(403, {"error": "拒绝不可信来源的修改请求"})
         try:
             size = int(self.headers.get("Content-Length", "0"))
