@@ -25,3 +25,9 @@ Windows 和 Ubuntu 的同一次 CI 均重现上述三项失败、一项异常；
 ## 范围限制
 
 这些回归使用 Python 临时文件和合成内存文件目录，不是对用户真实 C 盘或 D/E 盘执行长时间压力运行；也没有测试 NTFS 实际权限/联接点的所有组合、机械磁盘健康、USB 物理断线。源码完整性清单不是杀毒认证，发行 ZIP 需独立进行 VirusTotal 核验。
+
+## 跨平台 ZIP 哈希失配诊断与修复
+
+早期 Beta 的 Windows 与 Ubuntu runner 曾从同一提交产生不同 ZIP 哈希，原因是平台依赖的 Git 文本换行符策略。以前各自单独通过 CRC/manifest 的检查无法识别这种非可重复性。
+
+已加入 `.gitattributes` 明确统一 LF 文本、Windows BAT/CMD CRLF，在两种操作系统中检出相同字节；增加独立 CI 作业比较 Windows/Ubuntu 产出 ZIP 的 SHA-256。必须两方相同才通过。此检查不替代第三方恶意软件扫描。
