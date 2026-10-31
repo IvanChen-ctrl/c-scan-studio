@@ -63,7 +63,7 @@ jobs:
         with:
           ref: ${{ steps.gate.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         if: steps.gate.outputs.ready == 'true'
         with:
           python-version: '3.13'
