@@ -27,7 +27,7 @@ jobs:
     env:
       RELEASE_SOURCE_SHA: '2f58ca3415b46a4f87915211cf970671a5d1c09a'
       EXPECTED_ZIP_SHA256: 'd6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362'
-      RELEASE_DIR: ${{ runner.temp }}/cscan-dist
+      RELEASE_DIR: /tmp/cscan-dist
     steps:
       - name: Gate on real CI and CodeQL for workflow and scanned source commits
         id: gate
