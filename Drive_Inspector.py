@@ -258,7 +258,11 @@ def file_digest(entry, stop, deadline, bytes_left, sample=False):
         h = hashlib.sha256()
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             if sample:
-                if bytes_left < (min(opened.st_size, BLOCK) * (2 if opened.st_size > BLOCK else 1)):
+                # The second sample block can be shorter than BLOCK for files
+                # between BLOCK and 2*BLOCK. Charge actual bytes read.
+                sample_bytes = (min(opened.st_size, BLOCK) +
+                                min(BLOCK, max(0, opened.st_size - BLOCK)))
+                if bytes_left < sample_bytes:
                     raise TimeoutError('采样预算不足')
                 data = stream.read(BLOCK)
                 total += len(data)
@@ -311,6 +315,7 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
         stack.append((root, root_abs))
     class_stats = defaultdict(lambda: {'count': 0, 'bytes': 0, 'samples': []})
     volume_counts = Counter()
+    last_scan_update_at, last_scan_update_count = start, 0
     while stack:
         if stop.is_set():
             incomplete = cancel_flag = True
@@ -371,8 +376,14 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
                         denied += 1
         except OSError:
             denied += 1
-        if progress and len(files) % 2500 < 60:
-            progress('已识别 {:,} 个文件；正在逐类统计（只读）'.format(len(files)))
+        # UI progress must not fire for every tiny directory. Rate-limit
+        # callbacks by files or time; remain responsive without flooding HTTP.
+        if progress:
+            now = time.monotonic()
+            if (len(files) - last_scan_update_count >= 2500 or
+                    now - last_scan_update_at >= 0.5):
+                progress('已识别 {:,} 个文件；正在逐类统计（只读）'.format(len(files)))
+                last_scan_update_at, last_scan_update_count = now, len(files)
         if incomplete:
             break
     # Only count actual successful SHA-256 comparisons, not size/name matches.
@@ -388,6 +399,7 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
     hash_failures = 0
     matched = defaultdict(list)
     verified_files = 0
+    last_hash_update = 0
     hashing_incomplete = False
     for size, records in candidates:
         if stop.is_set() or time.monotonic() >= hash_deadline:
@@ -425,8 +437,9 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
                     hash_failures += 1
             if hashing_incomplete:
                 break
-        if progress and verified_files % 40 == 0:
+        if progress and verified_files - last_hash_update >= 40:
             progress('已完成 {:,} 个文件的 SHA-256 全量校验'.format(verified_files))
+            last_hash_update = verified_files
         if hashing_incomplete:
             break
     groups = []

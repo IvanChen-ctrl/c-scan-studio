@@ -42,7 +42,7 @@ import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 
-VERSION = "3.5.2-beta.1"
+VERSION = "3.6.0-beta.3"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -389,6 +389,10 @@ class Analyzer:
         self.snapshots = {}
         self.scan_complete = False
         self.inventory = inspector.empty_report()
+        # Four-key read-only indexes are built once per immutable scan snapshot.
+        # Never exposed via /api/state or included in downloadable reports.
+        self._classification_cache_source = None
+        self._classification_cache = {}
         self.drive_choices = []
         self.drive_choices_refreshed = 0.0
         self.large_files = []
@@ -449,6 +453,8 @@ class Analyzer:
                                             progress=tick)
             with self.lock:
                 self.inventory = found
+                self._classification_cache_source = None
+                self._classification_cache = {}
                 self.progress = 1
                 self.progress_max = 1
                 self.phase = 'idle'
@@ -486,10 +492,26 @@ class Analyzer:
                           for v in v.get('drives', [])}
                 if drive is not None and drive not in drives:
                     return False, '盘符不属于当前类别/子类的扫描快照。', None
-            all_items = [x for x in self.inventory.get('classified_files', [])
-                         if x['category'] == category
-                         and (subtype is None or x.get('subtype') == subtype)
-                         and (drive is None or x.get('volume') == drive)]
+            # The old implementation scanned all N records for each page.
+            # A 40,000-file snapshot with 400 pages visited 16M records.
+            # Cache four filter combinations under the lock; future page
+            # reads are O(page length), not O(snapshot length).
+            source = self.inventory.get('classified_files', [])
+            if source is not self._classification_cache_source:
+                index = {}
+                for record in source:
+                    cat = record['category']
+                    sub = record.get('subtype')
+                    volume = record.get('volume')
+                    keys = {(cat, None, None), (cat, sub, None),
+                            (cat, None, volume), (cat, sub, volume)}
+                    for key in keys:
+                        index.setdefault(key, []).append(record)
+                self._classification_cache = index
+                # Keep a strong reference: object ID reuse cannot cause stale
+                # indexes when a new immutable scan snapshot replaces source.
+                self._classification_cache_source = source
+            all_items = self._classification_cache.get((category, subtype, drive), [])
             if offset > len(all_items):
                 return False, '分页超出扫描清单。', None
             items = all_items[offset:offset + limit]
@@ -547,6 +569,8 @@ class Analyzer:
                 self.scan_complete = False
             elif phase == "inventory":
                 self.inventory = inspector.empty_report()
+                self._classification_cache_source = None
+                self._classification_cache = {}
             elif phase == "large":
                 self.large_files = []
                 self.large_info = {"source": "正在查询", "complete": False, "scanned_entries": 0}
