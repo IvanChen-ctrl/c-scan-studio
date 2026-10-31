@@ -1,4 +1,4 @@
-# C-Scan Studio v3.4.0-beta.2 / C 盘智能扫描与安全可控清理
+# C-Scan Studio v3.5.0-beta.1 / C 盘安全清理与多磁盘查重分类
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
@@ -7,15 +7,15 @@
 
 ## 1. 开始使用
 
-1. [从 GitHub 正式 beta.2 预发布页下载](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.4.0-beta.2) `C_Scan_Studio_v3.4.0-beta.2_Source.zip`，核对 SHA-256 `dc9d63c1e85ae7a7ffb28e3cc695e1c3a2976c0d7b83f9cd76bbf1397e9bee66`；**不要混用 PR 合并前同名的测试 ZIP**。
-2. 解压到例如 `D:\C_Scan_Studio_v3.4.0-beta.2`，不要直接在 ZIP 内运行。
+1. 下载此版本的 `C_Scan_Studio_v3.5.0-beta.1_Source.zip`（本轮独立源码 ZIP；GitHub 预发布通过 CI 后另行提供正式附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
+2. 解压到例如 `D:\C_Scan_Studio_v3.5.0-beta.1`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.4.0-beta.2 图形界面入口 | 说明 |
+| 操作 | v3.5.0-beta.1 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -23,6 +23,7 @@
 | 官方完整版 Python | 工具与高级维护 → 可选安装 | 额外两次确认 |
 | Everything 与 ES CLI | 工具与高级维护 → Everything | 用户确认、固定官方 SHA-256 |
 | 快速查找大文件 | 大文件快速搜索 | 只读，不能删除 |
+| 其他盘查重与分类 | 其他盘查重与分类 → 选择盘符 → 只读分析 | 按 SHA-256 查重、智能分类，只给人工处理建议 |
 | Defender、数字签名、离线分享 ZIP | 工具与高级维护 → 安全核验 | 按操作分别确认 |
 | 在线检测 / 本地哈希 | 在线安全验证 | 永不自动上传 |
 | CSV / JSON 报告 | 首页右上角 / 安全验证 | 报告含本机路径，分享前脱敏 |
@@ -44,7 +45,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.4.0-beta.2_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.5.0-beta.1_Source.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**
@@ -103,3 +104,16 @@ Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
 - [给朋友的安全核验手册](docs/FRIENDS_VERIFY_CN.md)提供哈希校验、GitHub 构建证明及可选第三方病毒扫描步骤。
 - beta.2 **尚无已独立核实的 VirusTotal 报告，也没有真实 Windows 清理验收**；旧版 v3.3.1 的检测记录不能用于 beta.2。
 - 此后更新的 `main` 包含文档变更，重新构建的 ZIP SHA-256 可能变化；请以**固定的 Release 附件**作为独立检测和对外分享对象。
+
+## v3.5.0-beta.1 新功能：其他盘查重与智能分类（测试版）
+
+**此版本测试包与 GitHub 既有 v3.4.0-beta.2 Release 不同，必须独立核对 SHA-256。** 既有 v3.3.1 稳定版和 v3.4.0-beta.2 预发布版不替换、不重写。
+
+- 左侧 **「其他盘查重与分类」** → 主动勾选 D:～Z: → 选择最小重复文件阈值 → 开始只读分析；支持多个本机磁盘一起比较同内容副本。
+- 只把完整 SHA-256 相同的非硬链接文件列为重复组；按备份/项目/模型/数据库等保护规则提出**人工复核建议**，没有自动删除、移动或整理文件的功能。
+- 智能分类采用透明可解释的扩展名/文件名规则，可按类别分页浏览完整文件清单并导出 JSON/CSV，**不声称使用 AI 模型理解个人文件**。
+- 首次启动时不再自动执行 C 盘扫描，所有磁盘任务都需要明确点击。索引/分类/文件哈希都在本机，不自动上传。
+- 时间、数量、哈希字节和运行时长有上限；结果标明是否完整，理论重复大小并不是可直接回收空间。
+- 操作说明见 [多盘查重简明手册](docs/MULTIDRIVE_DUPLICATES_GUIDE_CN.md)；更新日志见 [v3.5 发布说明](docs/RELEASE_NOTES_v3.5.md)。
+
+**验收状态：** 目前只通过隔离环境模拟扫描与静态浏览器布局验证，尚无用户 Windows 实机 NTFS/USB 长时扫描及本版本独立 VirusTotal 报告。向朋友推荐时请优先使用验证完整的 v3.3.1 稳定版。

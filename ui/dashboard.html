@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>C-Scan Studio v3.4.0-beta.2 | 统一控制台 · 安全可控</title>
+<title>C-Scan Studio v3.5.0-beta.1 | 统一控制台 · 安全可控</title>
 <style>
 :root{font-family:Segoe UI,Microsoft YaHei UI,Microsoft YaHei,Arial,sans-serif;color:#dce6f4;background:#08111f;font-synthesis:none;--surface:#101d30;--surface2:#142338;--line:#273a52;--muted:#91a4bb;--primary:#66b2ff;--green:#41d6a4;--amber:#ffcb60;--orange:#ff9b60;--red:#ff7387;--gray:#b0b7c8;--radius:15px}
 *{box-sizing:border-box}body{margin:0;min-width:360px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:var(--primary)}.app{display:flex;min-height:100vh}
@@ -77,25 +77,47 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
 .cleanup-result-metric strong{font-size:18px;display:block;margin:5px 0;color:#135b4b;font-variant-numeric:tabular-nums}
 .cleanup-result p{font-size:11px;margin:10px 0 0;color:#537e79;line-height:1.6}
 @media(max-width:650px){.review-file-table{min-width:540px}.review-files-scroll{max-height:220px}.cleanup-result-grid{grid-template-columns:1fr}.cleanup-result-metric strong{font-size:16px}}
+
+/* v3.5: multi-disk, exclusively read-only inventory and SHA-256 duplicate review */
+.workspace.inspect-layout{grid-template-columns:minmax(0,1fr)}
+.inspect-config{padding:20px;border-bottom:1px solid var(--line);background:#f7fbff}
+.inspect-config-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#244460;font-size:13px;margin-bottom:13px}
+.drive-choices{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 15px;min-height:45px}
+.drive-choice{cursor:pointer;min-width:140px;flex:0 1 auto;display:flex;align-items:center;gap:11px;border-radius:11px;padding:10px 14px;border:1px solid #c9dae9;background:#fff;color:#21445f;font-size:12px}
+.drive-choice:hover{border-color:#6ea8cf}.drive-choice input{accent-color:#1680b4;transform:scale(1.15)}.drive-choice strong{display:block;font-size:14px}.drive-choice small{font-size:10px;color:#7591a5}
+.inspect-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.inspect-rule{font-size:11px;line-height:1.7;color:#527489;margin-top:12px}
+.inspect-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding:17px;background:#eff7fc}
+.inspect-stats>div{min-width:0;background:#fff;border:1px solid #d9e7f1;border-radius:12px;padding:14px}.inspect-stats span{font-size:11px;color:#71899c;display:block;line-height:1.5}.inspect-stats strong{font-size:19px;color:#21527a;display:block;margin-top:7px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.inspect-status{padding:11px 18px;font-size:12px;color:#42637e;border-bottom:1px solid #e5eef6;line-height:1.7}
+.inspect-block{padding:18px 20px;border-top:1px solid #e1eaf2}.inspect-section-title{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}.inspect-section-title h3{font-size:15px;color:#243f57;margin:0 0 13px}
+.inspect-category-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.inspect-category{background:#f7fbff;border:1px solid #dce8f1;border-radius:12px;padding:12px 14px;min-width:0}.inspect-category header{display:flex;justify-content:space-between;gap:9px;color:#254965;font-weight:750;font-size:12px}.inspect-category .bar{height:5px;border-radius:8px;background:#e0ecf5;margin:10px 0 6px;overflow:hidden}.inspect-category .bar>span{display:block;height:100%;background:#5c9ec4}.inspect-category p{font-size:10px;line-height:1.6;margin:0;color:#658198;overflow-wrap:anywhere}
+.inspect-dup-list{display:flex;flex-direction:column;gap:9px}.inspect-dup{border:1px solid #d9e5ee;border-radius:12px;background:#f9fcff;color:#254963;padding:14px 16px;min-width:0}.inspect-dup summary{cursor:pointer;font-size:12px;font-weight:750;line-height:1.6}.inspect-dup summary .soft{font-weight:500}.inspect-dup .digest{font:10px Consolas,monospace;color:#758fa4;overflow-wrap:anywhere;margin:9px 0}
+.inspect-path{background:#fff;border:1px solid #e0eaf2;border-radius:8px;padding:9px 11px;margin:7px 0;font-size:11px;overflow-wrap:anywhere}.inspect-path .path-note{color:#58788c;font-size:10px;line-height:1.7;margin-top:5px}
+.inspect-disclaimer{padding:16px 20px;background:#fff8e8;border-top:1px solid #f0dca9;color:#735624;font-size:11px;line-height:1.8}
+@media(max-width:900px){.inspect-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.inspect-category-list{grid-template-columns:1fr}}
+@media(max-width:530px){.inspect-block{padding:14px}.inspect-config{padding:14px}.inspect-stats{padding:12px}.drive-choice{min-width:125px}.inspect-stats strong{font-size:17px}}
+
+.inspect-category button{margin-top:10px}.inspect-file-browser{border:1px solid #d8e7f1;background:#f5f9fd;border-radius:12px;margin-top:13px;padding:13px}.inspect-file-toolbar{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;padding-bottom:9px;color:#355470;font-size:12px}.inspect-file-browser .table-scroll{max-height:350px;min-height:80px;background:#fff}.inspect-file-browser table{min-width:660px}.inspect-file-browser .table-scroll td{overflow-wrap:anywhere;word-break:break-word}.inspect-pager{padding:10px 0 0;display:flex;gap:9px;justify-content:flex-end}
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="sidebar">
-  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">统一控制台 / 安全可控 v3.4.0-beta.2</div></div></div>
+  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">多磁盘分析 / 安全可控 v3.5.0-beta.1</div></div></div>
   <div class="nav-title">主要功能</div>
   <button class="nav-btn active" id="nav-cache" onclick="switchPage('cache')"><span class="nav-ico">◫</span><span class="nav-text">智能缓存清理</span></button>
   <button class="nav-btn" id="nav-large" onclick="switchPage('large')"><span class="nav-ico">⌕</span><span class="nav-text">大文件快速搜索</span></button>
+  <button class="nav-btn" id="nav-inspect" onclick="switchPage('inspect')"><span class="nav-ico">◷</span><span class="nav-text">其他盘查重与分类</span></button>
   <button class="nav-btn" id="nav-advice" onclick="switchPage('advice')"><span class="nav-ico">◈</span><span class="nav-text">高风险保护清单</span></button>
   <button class="nav-btn" id="nav-tools" onclick="switchPage('tools')"><span class="nav-ico">▦</span><span class="nav-text">工具与高级维护</span></button>
   <button class="nav-btn" id="nav-security" onclick="switchPage('security')"><span class="nav-ico">♢</span><span class="nav-text">在线安全验证</span></button>
   <button class="nav-btn" id="nav-logs" onclick="switchPage('logs')"><span class="nav-ico">☰</span><span class="nav-text">日志与风险说明</span></button>
-  <div class="side-info"><strong>本地运行 · 无需登录</strong><p>仅在 127.0.0.1 提供界面。缓存扫描不会读取个人文档内容，默认不会清理任何文件。</p><p id="esSide">索引状态检测中...</p>
+  <div class="side-info"><strong>本地运行 · 无需登录</strong><p>仅在 127.0.0.1 提供界面。C 盘缓存扫描只读文件属性；多盘查重会本地读取选中文件计算 SHA-256，绝不自动上传或删除。</p><p id="esSide">索引状态检测中...</p>
   <button class="button" id="btn-everything" onclick="switchPage('tools')" style="margin-top:10px;width:100%">管理 Everything / Python</button>
   <p class="small" style="margin-top:6px;opacity:.72">第三方下载与安装都需要明确确认，文件核验后才能启动。</p></div>
 </aside>
 <main class="main">
-  <div class="topline"><div><div class="eyebrow">C-SCAN STUDIO · LOCAL DESKTOP</div><div class="h1">让 C 盘清理变得简单、可控</div><div class="subtitle">快速找到可清理空间，直观判断风险。<strong>没有你的明确确认，不会删除文件。</strong></div></div>
+  <div class="topline"><div><div class="eyebrow">C-SCAN STUDIO · LOCAL DESKTOP</div><div class="h1">C 盘安全清理 + 多磁盘智能查重</div><div class="subtitle">快速找到缓存、大文件和跨盘重复文件，按类型整理查看。<strong>没有你的明确确认，不会删除文件。</strong></div></div>
   <div class="top-actions"><button class="button ghost" id="btn-export-json" onclick="downloadReport('json')">↓ JSON 报告</button><button class="button ghost" onclick="downloadReport('csv')">↓ CSV 表格</button></div></div>
   <div class="flowbar">
     <div><div class="flow-title">四步完成 · 默认无选择、默认不删除</div>
@@ -120,6 +142,39 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
         <div class="footerline"><span id="cache-summary">扫描结果按风险和优先级排序</span><span>快扫不完整的项目禁止清理</span></div>
       </section>
       <section class="surface hide" id="page-large"><div class="surface-head"><span class="page-ribbon">空间排查 · 只读</span><h2>快速定位 C 盘大文件</h2><p>可通过左侧按钮一键下载并校验官方 Everything 与 ES CLI，随后优先读取它的索引；否则限时遍历 C 盘。此页面始终只读，不提供删除按钮。</p></div><div class="controls"><button class="button primary" id="btn-large" onclick="startLarge()">⌕ 开始查找</button><div style="display:flex;align-items:center;gap:6px"><label for="min-mb" class="small">最小文件</label><select class="control-select" id="min-mb"><option value="256">256 MiB</option><option value="512" selected>512 MiB</option><option value="1024">1 GiB</option><option value="2048">2 GiB</option><option value="4096">4 GiB</option></select></div><div class="search"><input id="search-large" placeholder="实时搜索路径、扩展名..." aria-label="筛选大文件"></div></div><div class="info-strip" id="large-source">尚未开始查找。</div><div class="table-scroll"><table><thead><tr><th>优先级</th><th>风险</th><th>文件大小</th><th>日期</th><th>文件名 / 位置</th></tr></thead><tbody id="large-rows"><tr><td class="empty" colspan="5">点击“开始查找”查看大文件</td></tr></tbody></table></div><div class="footerline"><span id="large-summary">文件不会在此页面被删除</span><span>仅展示普通逻辑文件大小，不代表实际可回收空间</span></div></section>
+
+      <section class="surface hide" id="page-inspect" aria-label="其他盘重复文件查找及智能分类">
+        <div class="surface-head"><span class="page-ribbon">新增 · 多磁盘只读空间管理</span><h2>其他盘重复文件检验与智能分类</h2>
+          <p>仅扫描你<strong>主动选择</strong>的本机固定或移动磁盘（D:～Z:）。分类依据扩展名和文件名，不会将文件上传网络；重复组必须经过<strong>完整 SHA-256</strong> 验证。全部结果仅供参考，<strong>此页面完全没有删除或移动按钮</strong>。</p></div>
+        <div class="inspect-config">
+          <div class="inspect-config-head"><strong>① 选择需要检验的磁盘</strong><span class="soft">默认不选任何磁盘 · 不扫描 C 盘 · 不扫描网络共享</span></div>
+          <div class="drive-choices" id="drive-choices" aria-label="可扫描磁盘">正在查询可用磁盘...</div>
+          <div class="inspect-toolbar"><label for="inspect-min" class="soft">重复文件最小大小</label><select id="inspect-min" class="control-select"><option value="64">64 KiB</option><option value="1024" selected>1 MiB</option><option value="16384">16 MiB</option></select>
+            <button class="button primary" id="btn-inspect" onclick="startInspection()">② 开始只读分析</button>
+            <button class="button" id="btn-inspect-refresh" onclick="refreshDriveList()">刷新盘符</button>
+            <button class="button" id="btn-inspect-json" onclick="downloadReport('json')">↓ JSON 完整本地报告</button>
+          </div>
+          <div class="inspect-rule">保护规则：跳过 Windows/回收站/环境目录、符号链接及联接点；硬链接不当作重复副本。扫描设有时间、文件数和哈希读取限额。不能证明重复的文件不会进入重复组，扫描未完成时也不宣称覆盖整个磁盘。</div>
+        </div>
+        <div class="inspect-stats" aria-live="polite">
+          <div><span>识别文件</span><strong id="ins-count">—</strong></div>
+          <div><span>SHA-256 确认重复组</span><strong id="ins-groups">—</strong></div>
+          <div><span>待人工复核的副本</span><strong id="ins-copies">—</strong></div>
+          <div><span>理论重复逻辑大小（非安全可回收量）</span><strong id="ins-size">—</strong></div>
+        </div>
+        <div id="inspect-status" class="inspect-status">未开始分析。请选择本机其他磁盘，然后点击“开始只读分析”。</div>
+        <div class="inspect-block"><div class="inspect-section-title"><h3>③ 智能文件分类</h3><span class="soft">本地可解释规则 · 不代表文件内容或质量识别</span></div>
+          <div id="inspect-categories" class="inspect-category-list"><p class="soft">扫描完成后展示各类型的文件数、总大小和文件示例。</p></div>
+          <div class="inspect-file-browser hide" id="inspect-file-browser">
+             <div class="inspect-file-toolbar"><strong id="inspect-file-title">分类文件清单</strong><span id="inspect-file-status" class="soft">等待读取...</span><button type="button" class="button tiny" onclick="closeCategoryFiles()">关闭清单</button></div>
+             <div class="table-scroll"><table><thead><tr><th>文件完整路径（本地只读）</th><th>逻辑大小</th><th>修改日期</th><th>分类依据</th></tr></thead><tbody id="inspect-file-rows"></tbody></table></div>
+             <div class="inspect-pager"><button class="button tiny" id="inspect-file-prev" onclick="loadCategoryFiles(categoryOffset-50)" disabled>上一页</button><button class="button tiny" id="inspect-file-next" onclick="loadCategoryFiles(categoryOffset+50)" disabled>下一页</button></div>
+          </div>
+        </div>
+        <div class="inspect-block"><div class="inspect-section-title"><h3>④ 逐组复核重复文件</h3><span class="soft">每组自动保留一份候选原件；用户仍需自己判断哪份不能动</span></div>
+          <div id="inspect-duplicates" class="inspect-dup-list"><p class="soft">需完成内容 SHA-256 验证才能生成建议。</p></div></div>
+        <div class="inspect-disclaimer"><strong>关于删除建议：</strong>这里没有删除 API，也不会自动打开文件进行修改。SHA-256 相同只说明文件字节一致，并不能证明副本没有被项目、软件或云同步服务引用。请先备份，再在文件资源管理器手动复核；模型、数据库、源码和备份默认建议保留。</div>
+      </section>
       <section class="surface hide" id="page-advice"><div class="surface-head"><span class="page-ribbon">清理保护策略</span><h2>不允许自动删除的内容</h2><p>即使文件体积巨大，以下位置也不会进入 GUI 自动清理白名单。</p></div><div class="note-list" id="advice-list"></div><div class="info-strip">可通过 Windows 设置 → 系统 → 存储 → 临时文件，或对应应用官方工具管理；不要手动删除 Windows/Conda/AI 模型目录。</div></section>
       <section class="surface hide" id="page-tools">
         <div class="surface-head"><span class="page-ribbon">原来的十余个 BAT 功能 · 已集中到这里</span><h2>一个界面管理所有工具</h2><p>不需要再找不同的 BAT。扫描与清理在首页；Everything、Python、Windows 维护和安全检测在这里，不能自动执行的高风险步骤保留人工确认。</p></div>
@@ -183,7 +238,7 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
 <script>
 'use strict';
 const session = new URLSearchParams(location.search).get('t') || '';
-const sections=['cache','large','advice','tools','security','logs'];
+const sections=['cache','large','inspect','advice','tools','security','logs'];
 let view='cache', latest=null, selected=new Set(), selectedRow=null, selectedKind=null;
 let previewPageOffset=0, previewPageRequest=0;
 let pendingPreview=null, sortBy='priority', sortDir=1, pollRunning=false;
@@ -198,7 +253,7 @@ const QS=(path)=>`${path}${path.includes('?')?'&':'?'}t=${encodeURIComponent(ses
 async function getState(){const res=await fetch(QS('/api/state'),{cache:'no-store'});if(!res.ok)throw Error('无法获取状态 '+res.status);return await res.json()}
 async function post(path,body={}){const res=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json','X-CSCAN-Token':session},body:JSON.stringify(body)});const obj=await res.json();if(!res.ok||!obj.ok)throw Error(obj.message||obj.error||'操作失败');return obj}
 function notify(s){E('task-msg').textContent=s}
-function switchPage(s){view=s;E('workspace').classList.toggle('security-layout',s==='security'||s==='tools');for(const name of sections){E('page-'+name).classList.toggle('hide',name!==s);E('nav-'+name).classList.toggle('active',name===s)}selectedRow=null;selectedKind=null;showDetail()}
+function switchPage(s){view=s;E('workspace').classList.toggle('security-layout',s==='security'||s==='tools');E('workspace').classList.toggle('inspect-layout',s==='inspect');E('detail-panel').classList.toggle('hide',s==='inspect');for(const name of sections){E('page-'+name).classList.toggle('hide',name!==s);E('nav-'+name).classList.toggle('active',name===s)}selectedRow=null;selectedKind=null;showDetail()}
 async function startScan(mode){if(latest?.busy)return;selected.clear();pendingPreview=null;if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
 async function setupEverything(){
  if(latest?.busy)return;
@@ -309,14 +364,72 @@ function renderCleanupResult(){
 function draw(){if(!latest)return;const d=latest.disk||{},rows=latest.items||[],g=rows.filter(x=>x.allowed&&x.risk==='green'),a=rows.filter(x=>x.allowed&&x.risk==='amber');E('m-free').textContent=d.total?fmt(d.free):'不可用';E('m-percent').textContent=d.total?`总容量 ${fmt(d.total)} · 已使用 ${Math.round(d.used/d.total*100)}%`:'无法取得 C 盘用量';E('m-green').textContent=fmt(g.reduce((v,x)=>v+x.size,0));E('m-green-foot').textContent=`${g.length} 项 · 默认推荐`;E('m-amber').textContent=fmt(a.reduce((v,x)=>v+x.size,0));E('m-amber-foot').textContent=`${a.length} 项 · 主动选择`;E('m-count').textContent=rows.reduce((n,x)=>n+x.count,0).toLocaleString();E('m-count-foot').textContent=`${rows.length} 个已识别目录目标`;const percent=d.total?Math.round(d.used/d.total*100):0;E('disk-usage-bar').style.width=percent+'%';E('disk-usage-track').setAttribute('aria-valuenow',String(percent));E('disk-usage-note').textContent=d.total?('已使用 '+percent+'%'):'待检测';
  const busy=latest.busy;E('task-dot').classList.toggle('busy',busy);E('task-msg').textContent=latest.message||'';const pct=Math.max(0,Math.min(100,Math.round((latest.progress||0)/Math.max(1,latest.progress_max||1)*100)));E('progressbar').style.width=pct+'%';E('progressnum').textContent=pct+'%';for(const b of ['btn-fast','btn-full','btn-large','btn-everything','btn-hero-fast'])E(b).disabled=busy;E('btn-stop').disabled=!busy;E('esSide').textContent='索引：'+(latest.es_status||'检测中'); if(latest.everything?.ready)E('btn-everything').textContent='重新启动/校验 Everything';
 const ids=new Set(rows.map(x=>x.id));for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed))selected.delete(k);
- renderCleanupResult();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
+ renderCleanupResult();renderDriveChoices();renderInspection();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
+
+// Multi-disk inspection is read-only. There are deliberately no delete/move calls.
+let lastDriveSignature='__first__', lastInspectSignature='__first__';
+let currentCategory=null,categoryOffset=0,categoryRequestId=0;
+function renderDriveChoices(){
+ const drives=latest?.drive_choices||[], sig=drives.map(x=>x.id+':'+x.total).join('|');
+ if(sig===lastDriveSignature)return;lastDriveSignature=sig;
+ const currentlySelected=new Set([...document.querySelectorAll('#drive-choices input[data-drive]:checked')].map(x=>x.dataset.drive));
+ const el=E('drive-choices');
+ el.innerHTML=drives.length?drives.map(d=>`<label class="drive-choice"><input type="checkbox" data-drive="${esc(d.id)}" ${currentlySelected.has(d.id)?'checked':''}><span><strong>${esc(d.id)} ${esc(d.type)}</strong><small>${d.total?`可用 ${fmt(d.free)} / 总共 ${fmt(d.total)}`:'容量未知'}</small></span></label>`).join(''):'<div class="soft">尚未识别到 D:～Z: 本机固定/可移动磁盘。请连接磁盘后刷新；不会访问网络共享。</div>';
+}
+async function refreshDriveList(){try{await post('/api/inspect-refresh');lastDriveSignature='__refresh__';await poll();renderDriveChoices()}catch(e){notify(e.message)}}
+async function startInspection(){
+ if(latest?.busy)return;
+ const drives=[...document.querySelectorAll('#drive-choices input[data-drive]:checked')].map(x=>x.dataset.drive);
+ if(!drives.length){alert('请选择至少一个 D:～Z: 磁盘。C 盘继续通过缓存清理模块管理。');return}
+ if(!confirm('即将只读检验 '+drives.join('、')+' 的文件大小、扩展名和重复候选的 SHA-256。\n可能持续数分钟，允许随时停止；不会删除、移动或上传任何文件。\n\n是否开始？'))return;
+ try{notify('开始只读查重/智能分类...');closeCategoryFiles();await post('/api/inspect',{drives,min_kb:Number(E('inspect-min').value)});lastInspectSignature='';}
+ catch(e){alert('未开始扫描：'+e.message)}
+}
+function closeCategoryFiles(){categoryRequestId++;currentCategory=null;categoryOffset=0;E('inspect-file-browser').classList.add('hide')}
+async function loadCategoryFiles(offset){
+ if(!currentCategory || offset<0)return;
+ const id=++categoryRequestId;
+ E('inspect-file-status').textContent='正在读取分类清单（仅扫描快照）...';
+ try{
+  const r=await post('/api/inspect-files',{category:currentCategory,offset,limit:50});
+  if(id!==categoryRequestId)return;
+  const pg=r.page;categoryOffset=pg.offset;
+  E('inspect-file-status').textContent=`第 ${pg.total?Math.floor(pg.offset/50)+1:0}/${Math.ceil(pg.total/50)} 页 · 共 ${pg.total.toLocaleString('zh-CN')} 个${pg.complete?'':' · 扫描不完整'}`;
+  E('inspect-file-rows').innerHTML=pg.files.map(item=>`<tr><td>${esc(item.path)}</td><td>${fmt(item.size)}</td><td>${esc(item.mtime)}</td><td>${esc(item.reason)} / ${esc(item.confidence)}置信度</td></tr>`).join('')||'<tr><td colspan="4">本页没有文件。</td></tr>';
+  E('inspect-file-prev').disabled=pg.offset<=0;
+  E('inspect-file-next').disabled=pg.next_offset===null;
+ }catch(e){if(id===categoryRequestId){E('inspect-file-status').textContent='读取失败：'+e.message;E('inspect-file-prev').disabled=true;E('inspect-file-next').disabled=true;}}
+}
+E('inspect-categories').addEventListener('click',ev=>{
+ const btn=ev.target.closest('button[data-cat]');if(!btn)return;
+ currentCategory=btn.dataset.cat;categoryOffset=0;categoryRequestId++;
+ const item=(latest?.inventory?.categories||[]).find(x=>x.id===currentCategory);
+ E('inspect-file-title').textContent=`${item?.label||'分类'} · 全部已扫描文件`;
+ E('inspect-file-browser').classList.remove('hide');loadCategoryFiles(0);
+});
+function renderInspection(){
+ const report=latest?.inventory||{};
+ E('btn-inspect').disabled=Boolean(latest?.busy);
+ E('ins-count').textContent=Number(report.files_seen||0).toLocaleString('zh-CN');
+ E('ins-groups').textContent=Number(report.total_duplicate_groups||0).toLocaleString('zh-CN');
+ E('ins-copies').textContent=Number(report.duplicate_files||0).toLocaleString('zh-CN');
+ E('ins-size').textContent=fmt(report.theoretical_savings||0);
+ E('inspect-status').textContent=(report.roots?.length?`本次范围：${report.roots.join('、')} · ${report.complete?'扫描完成':'扫描未完整/结果仅供参考'} · `:'')+(report.warning||'尚未开始')+` · 跳过连接/保护项 ${Number(report.skipped_links_hardlinks_protected||0)}，读取错误 ${Number(report.permission_errors||0)}，哈希失败 ${Number(report.hash_errors||0)}。${report.display_limit_note||''}`;
+ const signature=JSON.stringify([report.roots,report.complete,report.files_seen,report.total_duplicate_groups,report.categories?.length,report.elapsed_seconds]);
+ if(signature===lastInspectSignature)return;lastInspectSignature=signature;
+ const cats=report.categories||[], max=Math.max(...cats.map(x=>x.bytes),1);
+ E('inspect-categories').innerHTML=cats.length?cats.map(c=>`<div class="inspect-category"><header><span>${esc(c.label)} · ${Number(c.count).toLocaleString('zh-CN')} 个</span><span>${fmt(c.bytes)}</span></header><div class="bar"><span style="width:${(100*c.bytes/max).toFixed(2)}%"></span></div><p>${esc((c.samples||[]).slice(0,2).map(x=>x.path.split(/[\\/]/).pop()).join('、')||'仅扩展名统计')}</p><button type="button" class="button tiny" data-cat="${esc(c.id)}">查看该类所有文件 →</button></div>`).join(''):'<p class="soft">暂无分类结果；请选择磁盘并扫描。</p>';
+ const groups=report.duplicate_groups||[];
+ E('inspect-duplicates').innerHTML=groups.length?groups.map((g,i)=>`<details class="inspect-dup"><summary>第 ${i+1} 组 · ${Number(g.count).toLocaleString('zh-CN')} 份完全相同 · 每份 ${fmt(g.size)} · 理论重复量 ${fmt(g.theoretical_bytes)} <span class="soft">（展开查看位置）</span></summary><p class="digest">SHA-256: ${esc(g.sha256)}</p><div class="inspect-path"><strong>建议保留的候选原件</strong> · ${esc(g.keeper.path)}<div class="path-note">${esc(g.keeper.reason)}</div></div>${(g.copies||[]).map(c=>`<div class="inspect-path">${riskTag(c.risk)} ${esc(c.path)}<div class="path-note">${esc(c.suggestion)} · ${esc(c.reason)}</div></div>`).join('')}<p class="soft">${esc(g.warning)}</p></details>`).join(''):'<p class="soft">当前结果中未找到完整 SHA-256 一致的重复组。若已达到扫描预算，此结论不代表全盘无重复。</p>';
+}
+
 async function poll(){if(pollRunning)return;pollRunning=true;try{latest=await getState();draw()}catch(e){notify('本地连接暂时失败：'+e.message)}finally{pollRunning=false}}
 E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);pendingPreview=null;updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
 E('large-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;selectedRow=row.dataset.id;selectedKind='large';renderLarge();showDetail()});
 E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);pendingPreview=null;renderCache()});
 E('search-cache').addEventListener('input',renderCache);E('filter-cache').addEventListener('change',renderCache);E('search-large').addEventListener('input',renderLarge);
 document.querySelectorAll('th[data-sort]').forEach(el=>el.addEventListener('click',()=>{const field=el.dataset.sort;if(field===sortBy)sortDir=-sortDir;else{sortBy=field;sortDir=field==='size'||field==='count'?-1:1}renderCache()}));
-setInterval(poll,1100);poll();setTimeout(async()=>{try{await post('/api/scan',{mode:'fast'})}catch(e){notify('请手动点击快速扫描：'+e.message)}},550);
+setInterval(poll,1100);poll(); // All disk scans, including the old C: quick scan, require explicit user action.
 </script>
 </body>
 </html>
