@@ -13,6 +13,7 @@ import hashlib
 import os
 import tempfile
 import threading
+import zipfile
 import unittest
 import sys
 
@@ -84,6 +85,21 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn('*.bat text eol=crlf', attrs)
         self.assertIn('*.cmd text eol=crlf', attrs)
         self.assertIn("'.gitattributes'", (BASE / 'scripts/build_release.py').read_text('utf-8'))
+
+class DeterministicZipTests(unittest.TestCase):
+    def test_zip_entries_have_platform_independent_bytes(self):
+        from scripts import build_release
+        with tempfile.TemporaryDirectory(prefix='cscan_zip_regression_') as temp:
+            destination = Path(temp) / 'proof.zip'
+            build_release.make_zip([('sample.txt', b'non-destructive synthetic content')],
+                                   b'Path,SHA256\\n', destination)
+            with zipfile.ZipFile(destination) as archive:
+                self.assertIsNone(archive.testzip())
+                for entry in archive.infolist():
+                    self.assertEqual(entry.create_system, 3)
+                    self.assertEqual(entry.compress_type, zipfile.ZIP_STORED)
+                    self.assertEqual(entry.extra, b'')
+                    self.assertEqual(entry.date_time, build_release.DATE)
 
 class PaginationLoadTests(unittest.TestCase):
     def test_40k_file_catalog_400_pages_do_not_repeat_16m_row_scans(self):
