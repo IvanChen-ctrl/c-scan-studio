@@ -112,10 +112,10 @@ jobs:
           - User-submitted VirusTotal file report: https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection
           - VirusTotal engine detection count/verdict has not been independently retrieved from the dynamic report.
           - GitHub attestation binds this build run to the ZIP digest. Source was pinned despite later workflow-only fixes.
+          - Git tag identifies the repository's default branch at publication; the archive itself was built from the independently CI-verified source commit noted above.
           EOF
           gh release create v3.3.1 \
             "$RELEASE_DIR/C_Scan_Studio_v3.3.1_Source.zip" \
             "$RELEASE_DIR/C_Scan_Studio_v3.3.1_Source.zip.sha256.txt" \
-            --target "$RELEASE_SOURCE_SHA" \
             --title 'C-Scan Studio v3.3.1 - verified source release' \
             --notes-file "$RUNNER_TEMP/cscan_release_notes.md"
