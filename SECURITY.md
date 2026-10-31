@@ -40,3 +40,7 @@ secure contact channel *without disclosing the vulnerability details*.
 - Before sharing diagnostic JSON, remove personal usernames and full paths.
 - CodeQL, Defender, VirusTotal and attestations are complementary evidence,
   not an official malware-free certificate.
+
+## Public v3.3.1 verification
+
+The submitted [VirusTotal report](https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection) identifies the same SHA-256 as the source ZIP. The detection count has not been independently fetched. [View the complete evidence report](docs/SECURITY_VERIFICATION_v3.3.1.md). This is verification evidence, not a malware-free certificate.

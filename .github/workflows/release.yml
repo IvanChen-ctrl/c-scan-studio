@@ -1,6 +1,6 @@
-name: Release source + provenance
-# Public release requires success from both CI tests (Windows + Linux) and CodeQL
-# for exactly the same main-branch commit. No release on pull request code.
+name: Release pinned v3.3.1 source + provenance
+# Pin source to the exact already-scanned, CI-validated commit.
+# Changes to the release workflow must not change the v3.3.1 ZIP digest.
 on:
   workflow_run:
     workflows: ['CI tests', 'CodeQL']
@@ -13,7 +13,7 @@ permissions:
   attestations: write
   artifact-metadata: write
 concurrency:
-  group: publish-v3.3.1
+  group: publish-verified-v3.3.1
   cancel-in-progress: false
 jobs:
   publish:
@@ -24,66 +24,98 @@ jobs:
         github.event.workflow_run.head_branch == 'main' &&
         github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
+    env:
+      RELEASE_SOURCE_SHA: '2f58ca3415b46a4f87915211cf970671a5d1c09a'
+      EXPECTED_ZIP_SHA256: 'd6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362'
+      RELEASE_DIR: ${{ runner.temp }}/cscan-dist
     steps:
-      - name: Require successful CI and CodeQL for same commit
+      - name: Gate on real CI and CodeQL for workflow and scanned source commits
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100" > "$RUNNER_TEMP/cscan_runs.json"
-          ci=$(jq -r --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CI tests" and .conclusion=="success")] | length' "$RUNNER_TEMP/cscan_runs.json")
-          codeql=$(jq -r --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CodeQL" and .conclusion=="success")] | length' "$RUNNER_TEMP/cscan_runs.json")
-          if [[ "$ci" -lt 1 || "$codeql" -lt 1 ]]; then
-            echo "Waiting for real successful CI + CodeQL results for $TARGET_SHA (CI=$ci CodeQL=$codeql)."
-            echo 'ready=false' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "Both checks passed for $TARGET_SHA"
-          echo 'ready=true' >> "$GITHUB_OUTPUT"
-          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v7
-        if: steps.gate.outputs.ready == 'true'
-        with:
-          ref: ${{ steps.gate.outputs.target_sha }}
-          persist-credentials: false
-      - uses: actions/setup-python@v6
-        if: steps.gate.outputs.ready == 'true'
-        with:
-          python-version: '3.13'
-      - name: Re-test source before publishing
-        if: steps.gate.outputs.ready == 'true'
-        shell: bash
-        run: |
-          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33; do python -m unittest discover -s "$suite"; done
-      - name: Build exact source-only archive and SHA-256
-        if: steps.gate.outputs.ready == 'true'
-        run: python scripts/build_release.py --outdir dist
-      - name: Verify local manifest
-        if: steps.gate.outputs.ready == 'true'
-        run: python Security_Audit.py
-      - name: Generate signed provenance attestation
-        if: steps.gate.outputs.ready == 'true'
-        uses: actions/attest@v4
-        with:
-          subject-path: dist/C_Scan_Studio_v3.3.1_Source.zip
-      - name: Publish immutable v3.3.1 GitHub release
-        if: steps.gate.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.gate.outputs.target_sha }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           if gh release view v3.3.1 >/dev/null 2>&1; then
-            echo 'v3.3.1 already exists; leaving existing artifacts unchanged.'
+            echo 'v3.3.1 already exists; preserving its files.'
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          for sha in "$EVENT_SHA" "$RELEASE_SOURCE_SHA"; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$sha&per_page=100" > "$RUNNER_TEMP/checks-$sha.json"
+            ci=$(jq -r --arg sha "$sha" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CI tests" and .conclusion=="success")] | length' "$RUNNER_TEMP/checks-$sha.json")
+            codeql=$(jq -r --arg sha "$sha" '[.workflow_runs[] | select(.head_sha==$sha and .name=="CodeQL" and .conclusion=="success")] | length' "$RUNNER_TEMP/checks-$sha.json")
+            if [[ "$ci" -lt 1 || "$codeql" -lt 1 ]]; then
+              echo "Not publishing; checks incomplete for $sha (CI=$ci CodeQL=$codeql)"
+              echo 'ready=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          echo "Verified source $RELEASE_SOURCE_SHA and triggering commit $EVENT_SHA"
+      - name: Checkout exact source used for VirusTotal-scanned archive
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SOURCE_SHA }}
+          persist-credentials: false
+      - name: Install Python
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Repeat source tests
+        if: steps.gate.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33; do
+            python -m unittest discover -s "$suite"
+          done
+      - name: Build outside the source tree
+        if: steps.gate.outputs.ready == 'true'
+        shell: bash
+        run: python scripts/build_release.py --outdir "$RELEASE_DIR"
+      - name: Require exact SHA-256 from existing VirusTotal report
+        if: steps.gate.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$EXPECTED_ZIP_SHA256  $RELEASE_DIR/C_Scan_Studio_v3.3.1_Source.zip" | sha256sum --check -
+      - name: Verify included source manifest
+        if: steps.gate.outputs.ready == 'true'
+        run: python Security_Audit.py
+      - name: Generate GitHub artifact attestation
+        if: steps.gate.outputs.ready == 'true'
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/cscan-dist/C_Scan_Studio_v3.3.1_Source.zip
+      - name: Publish immutable v3.3.1 GitHub release
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v3.3.1 >/dev/null 2>&1; then
+            echo 'Existing v3.3.1 release will not be replaced.'
+            exit 0
+          fi
+          cp docs/RELEASE_NOTES_v3.3.md "$RUNNER_TEMP/cscan_release_notes.md"
+          cat >> "$RUNNER_TEMP/cscan_release_notes.md" <<'EOF'
+
+          ## Published-file security evidence (2026-10-31)
+
+          - Source commit (verified CI + CodeQL): `2f58ca3415b46a4f87915211cf970671a5d1c09a`
+          - ZIP SHA-256: `d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362`
+          - User-submitted VirusTotal file report: https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection
+          - VirusTotal engine detection count/verdict has not been independently retrieved from the dynamic report.
+          - GitHub attestation binds this build run to the ZIP digest. Source was pinned despite later workflow-only fixes.
+          EOF
           gh release create v3.3.1 \
-            dist/C_Scan_Studio_v3.3.1_Source.zip \
-            dist/C_Scan_Studio_v3.3.1_Source.zip.sha256.txt \
-            --target "$TARGET_SHA" \
-            --title 'C-Scan Studio v3.3.1 - Windows UTF-8 safety hotfix' \
-            --notes-file docs/RELEASE_NOTES_v3.3.md
+            "$RELEASE_DIR/C_Scan_Studio_v3.3.1_Source.zip" \
+            "$RELEASE_DIR/C_Scan_Studio_v3.3.1_Source.zip.sha256.txt" \
+            --target "$RELEASE_SOURCE_SHA" \
+            --title 'C-Scan Studio v3.3.1 - verified source release' \
+            --notes-file "$RUNNER_TEMP/cscan_release_notes.md"

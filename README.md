@@ -59,7 +59,7 @@ python -m unittest discover -s tests_v3
 python -m unittest discover -s tests_v31
 python -m unittest discover -s tests_v32
 python -m unittest discover -s tests_v33
-python scripts/build_release.py --outdir dist
+python scripts/build_release.py --outdir ../cscan-dist
 ```
 
 完整 GitHub 发布步骤见 `docs/GITHUB_PUBLISH_CN.md`，安全披露见 `SECURITY.md`，开源许可见 `LICENSE`，第三方声明见 `NOTICE.md`。
@@ -73,3 +73,10 @@ python scripts/build_release.py --outdir dist
 - Windows 启动 BAT 和 GitHub CI 强制使用 UTF-8，避免在 cp1252 控制台输出中文时异常退出。
 - GitHub Release 只有当同一主分支提交的 Windows/Linux CI 和 CodeQL **实际成功**后才自动创建；附 SHA-256 和 GitHub Artifact Attestation。
 - 任何 GitHub 检查都不是第三方杀毒证书；VirusTotal / MetaDefender 结果必须通过外部实际扫描取得。
+
+## 8. 独立检测与固定发行版本（2026-10-31）
+
+- [v3.3.1 VirusTotal 文件报告](https://www.virustotal.com/gui/file/d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362/detection)（对应 SHA-256：`d6f1adeb0befd9603244aada81882dbaa64ffc120010020afa7e39dc99865362`）。
+- [查看安全证据与局限](docs/SECURITY_VERIFICATION_v3.3.1.md)，包括真实 Windows/Linux CI 与 CodeQL 工作流记录。
+- VirusTotal 检出数量尚未从动态页面独立核验，不能据此宣称“零病毒”。
+- 正式发行 ZIP 固定从 [已通过测试的源码提交](https://github.com/IvanChen-ctrl/c-scan-studio/commit/2f58ca3415b46a4f87915211cf970671a5d1c09a) 构建；主分支后续发布流程修复不影响该 ZIP 文件指纹。
