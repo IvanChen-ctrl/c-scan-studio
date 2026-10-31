@@ -76,6 +76,12 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn('tests_v363', build_release.SOURCE_DIRS)
         self.assertIn('python scripts/verify_source_manifest.py', ci)
         self.assertIn('python scripts/verify_source_manifest.py', release)
+        self.assertIn('identical_source_archives:', ci)
+        attrs = (BASE / '.gitattributes').read_text('utf-8')
+        self.assertIn('* text=auto eol=lf', attrs)
+        self.assertIn('*.bat text eol=crlf', attrs)
+        self.assertIn('*.cmd text eol=crlf', attrs)
+        self.assertIn("'.gitattributes'", (BASE / 'scripts/build_release.py').read_text('utf-8'))
 
 class PaginationLoadTests(unittest.TestCase):
     def test_40k_file_catalog_400_pages_do_not_repeat_16m_row_scans(self):
