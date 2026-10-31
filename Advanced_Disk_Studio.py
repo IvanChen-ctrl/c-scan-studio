@@ -875,7 +875,7 @@ class Analyzer:
                 return False, "分页位置超出本次预览范围。", None
             files = []
             position = 0
-            for key, target, shots, age_days in jobs:
+            for (key, target, shots, age_days), (_, _, live_shots, _) in zip(jobs, live_jobs):
                 end = position + len(shots)
                 if end <= offset:
                     position = end
@@ -884,7 +884,6 @@ class Analyzer:
                     break
                 lo = max(0, offset - position)
                 hi = min(len(shots), offset + limit - position)
-                live_shots = live_jobs[[j[0] for j in jobs].index(key)][2]
                 for index in range(lo, hi):
                     shot = shots[index]
                     if live_shots[index] != shot:
