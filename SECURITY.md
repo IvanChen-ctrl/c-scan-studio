@@ -67,3 +67,20 @@ The after-clean disk-space delta is a **net observed change** (background disk a
 The GitHub [v3.4.0-beta.2 pre-release](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.4.0-beta.2) has SHA-256 `dc9d63c1e85ae7a7ffb28e3cc695e1c3a2976c0d7b83f9cd76bbf1397e9bee66` and a distinct [GitHub attestation](https://github.com/IvanChen-ctrl/c-scan-studio/attestations/62151837). CI and CodeQL workflows completed for the release source. See [beta.2 verification evidence](docs/SECURITY_VERIFICATION_v3.4.0-beta.2.md).
 
 **No VirusTotal count or zero-detection claim exists for beta.2 here.** Beta source ZIP is not an antivirus-certified executable. Real Windows cleanup, removable-file races, third-party Everything IPC and Microsoft Defender scanning on the user's computer have not been independently validated. Avoid any automatic deletion until a separate Windows safety check is done.
+
+## v3.5 beta — non-C drive inventory boundary
+
+A separate read-only Drive_Inspector module implements explicit opt-in multi-drive
+classification and duplicate detection. Its HTTP route accepts ONLY verified
+local fixed/removable D:..Z: drive IDs, not file paths, UNC shares or arbitrary
+search roots. It skips junctions, symlinks, hard-link aliases and protected trees.
+
+Duplicate detection requires full-file SHA-256 after size/sample candidate
+filtering. It has bounded runtime, inventory size and hash byte budgets.
+Classification is extension/filename-based, not semantic AI, and only the
+explicitly requested local scan reads personal file contents for hashing.
+
+No duplicate deletion/move/quarantine API exists. A "keeper" is a cautious
+candidate for manual review, NOT a guarantee that any other copy is disposable.
+The category and duplicate reports include private paths; do not post them
+publicly. The new beta requires its own malware scans and actual Windows tests.

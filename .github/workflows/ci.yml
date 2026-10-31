@@ -34,9 +34,10 @@ jobs:
           python -m unittest discover -s tests_v32
           python -m unittest discover -s tests_v33
           python -m unittest discover -s tests_v34
+          python -m unittest discover -s tests_v35
       - name: Build and check source-only release
         shell: bash
         run: |
           python scripts/build_release.py --outdir ../out
           python Security_Audit.py
-          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.4.0-beta.2_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.5.0-beta.1_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"

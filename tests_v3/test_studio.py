@@ -22,7 +22,7 @@ import Advanced_Disk_Studio as app
 
 class RiskTests(unittest.TestCase):
     def test_ver(self):
-        self.assertEqual(app.VERSION, "3.4.0-beta.2")
+        self.assertEqual(app.VERSION, "3.5.0-beta.1")
 
     def test_four_risk_colours(self):
         for value in ("green", "amber", "orange", "red", "gray"):
@@ -269,7 +269,7 @@ class SecurityServerTests(unittest.TestCase):
     def test_auth_state_200(self):
         status,data=self.request('GET','/api/state?t='+self.http.session_token)
         self.assertEqual(200,status)
-        self.assertIn(b'"version":"3.4.0-beta.2"',data)
+        self.assertIn(b'"version":"3.5.0-beta.1"',data)
 
     def test_main_page_200(self):
         status,data=self.request('GET','/?t='+self.http.session_token)

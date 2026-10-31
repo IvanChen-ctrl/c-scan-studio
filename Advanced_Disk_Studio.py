@@ -40,8 +40,9 @@ import C_Drive_Cleanup as engine
 import Everything_Official_Manager as vendor
 import Security_Audit as security_audit
 from Unified_Tools import Toolbox
+import Drive_Inspector as inspector
 
-VERSION = "3.4.0-beta.2"
+VERSION = "3.5.0-beta.1"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -387,6 +388,9 @@ class Analyzer:
         self.items = []
         self.snapshots = {}
         self.scan_complete = False
+        self.inventory = inspector.empty_report()
+        self.drive_choices = []
+        self.drive_choices_refreshed = 0.0
         self.large_files = []
         self.large_info = {"source": "未扫描", "complete": False, "scanned_entries": 0}
         self.logs = []
@@ -412,23 +416,97 @@ class Analyzer:
         except OSError:
             return {"total": 0, "free": 0, "used": 0}
 
+    def list_drives(self):
+        # Volume enumeration may be slow for disconnected USB drives. Cache the
+        # UI list briefly; selection is *always* independently revalidated.
+        with self.lock:
+            if time.monotonic() - self.drive_choices_refreshed >= 20.0:
+                self.drive_choices = inspector.available_drives()
+                self.drive_choices_refreshed = time.monotonic()
+            return list(self.drive_choices)
+
+    def refresh_drives(self):
+        with self.lock:
+            self.drive_choices_refreshed = 0.0
+        return self.list_drives()
+
+    def start_inspection(self, drive_ids, min_kb=64):
+        # Strict allowlist, NOT arbitrary user-supplied filesystem paths.
+        try:
+            size = int(min_kb)
+            if type(min_kb) is bool or size not in (64, 1024, 16384):
+                return False, '查重门槛只能是 64 KiB、1 MiB 或 16 MiB。'
+            roots = inspector.select_drives(drive_ids)
+        except (ValueError, OSError) as exc:
+            return False, str(exc)
+        def work():
+            def tick(message):
+                with self.lock:
+                    self.message = message
+            self._record('跨盘只读分析：' + ', '.join(str(x) for x in roots))
+            found = inspector.inspect_roots(roots, self.cancel,
+                                            min_duplicate_bytes=size * 1024,
+                                            progress=tick)
+            with self.lock:
+                self.inventory = found
+                self.progress = 1
+                self.progress_max = 1
+                self.phase = 'idle'
+                self.message = ('已取消，结果不完整；' if found['cancelled'] else
+                                '只读分析完成；') + f"{found['files_seen']:,} 文件 / {found['total_duplicate_groups']} 组完整 SHA-256 相同。"
+            self._record(self.message)
+        return self._start('inventory', '正在对已选择磁盘做只读文件分类和查重...', work)
+
+    def classified_files_page(self, category, offset=0, limit=50):
+        # No arbitrary paths, filters, glob patterns or file reads from client.
+        if (not isinstance(category, str) or len(category) > 32 or
+                type(offset) is not int or type(limit) is not int or
+                offset < 0 or not 1 <= limit <= 100):
+            return False, '分类分页参数无效。', None
+        with self.lock:
+            allowed_categories = {x['id'] for x in self.inventory.get('categories', [])}
+            if category not in allowed_categories:
+                return False, '请先对其他磁盘执行只读扫描，再选择已经识别的类别。', None
+            all_items = [x for x in self.inventory.get('classified_files', []) if x['category'] == category]
+            if offset > len(all_items):
+                return False, '分页超出扫描清单。', None
+            items = all_items[offset:offset + limit]
+            return True, '只读展示已扫描文件的分类快照；没有打开或移动文件。', {
+                'category': category, 'total': len(all_items), 'offset': offset,
+                'limit': limit, 'files': items,
+                'next_offset': offset + len(items) if offset + len(items) < len(all_items) else None,
+                'complete': bool(self.inventory.get('inventory_complete')),
+            }
+
     def state(self):
+        drives = self.list_drives()
         with self.lock:
             disk = self._disk()
             items = list(self.items)
+            inventory_preview = dict(self.inventory)
+            inventory_preview.pop('classified_files', None)
+            preview_groups = []
+            for group in self.inventory.get("duplicate_groups", [])[:100]:
+                clipped = dict(group)
+                clipped["hidden_copies"] = max(0, len(group["copies"]) - 30)
+                clipped["copies"] = group["copies"][:30]
+                preview_groups.append(clipped)
+            inventory_preview["duplicate_groups"] = preview_groups
+            inventory_preview["display_limit_note"] = "界面只展示最大 100 组、每组最多 30 个待复核位置。需查看所有已确认结果，请主动下载本地 JSON 报告。"
             return {"version": VERSION, "phase": self.phase, "message": self.message,
                     "progress": self.progress, "progress_max": self.progress_max,
                     "items": items, "large_files": list(self.large_files),
                     "large_info": dict(self.large_info), "scan_complete": self.scan_complete,
+                    "inventory": inventory_preview, "drive_choices": drives,
                     "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if self.es_exe else "没有经过 SHA-256 校验的官方 ES CLI；不会运行 PATH 中的未知 es.exe，采用限时扫描"),
                     "everything": vendor.status(HERE),
-                    "busy": self.phase in ("scanning", "large", "cleaning", "setup"),
+                    "busy": self.phase in ("scanning", "large", "cleaning", "setup", "inventory"),
                     "logs": list(self.logs[-35:]), "advisories": ADVISORIES,
                     "last_cleanup": self.last_cleanup}
 
     def _start(self, phase, message, worker):
         with self.lock:
-            if self.phase in ("scanning", "large", "cleaning", "setup"):
+            if self.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
                 return False, "当前任务尚未结束，请先停止或等待任务完成。"
             self.cancel.clear()
             # A preview ticket is valid only for the exact scan snapshot and
@@ -444,6 +522,8 @@ class Analyzer:
                 self.targets = {}
                 self.snapshots = {}
                 self.scan_complete = False
+            elif phase == "inventory":
+                self.inventory = inspector.empty_report()
             elif phase == "large":
                 self.large_files = []
                 self.large_info = {"source": "正在查询", "complete": False, "scanned_entries": 0}
@@ -645,7 +725,7 @@ class Analyzer:
             return None, "清理项目 ID 格式无效。"
         if len(target_ids) != len(set(target_ids)):
             return None, "重复清理目标。"
-        if self.phase in ("scanning", "large", "cleaning", "setup"):
+        if self.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
             return None, "当前有任务正在运行。"
         if not self.items:
             return None, "请先运行缓存扫描。"
@@ -870,10 +950,12 @@ class Analyzer:
                 "summary": self.summary(), "cache_items": state["items"],
                 "large_files": state["large_files"], "large_info": state["large_info"],
                 "advisories": ADVISORIES, "cleanup": state["last_cleanup"],
+                "inventory": self.inventory,
                 "warnings": ["所有空间数值是逻辑大小，不保证等于磁盘实际释放量。",
                              "不完整/取消扫描的结果不代表 C 盘全量数据。",
                              "大文件列表仅定位，绝不提供删除操作。",
-                             "本地报告可能含目录路径，请自行妥善保管。"]}
+                             "跨盘智能分类只根据文件扩展名/文件名推断，未自动解析文件内容。",
+                             "重复文件只读检测，无自动删除；报告可能含本机路径，请自行妥善保管。"]}
 
     def summary(self):
         with self.lock:
@@ -924,11 +1006,30 @@ def csv_bytes(report):
     for rec in report["large_files"]:
         row(("大文件", rec["priority"], RISK_TEXT[rec["risk"]], rec["size"], rec["mtime"],
                       rec["path"], rec["reason"]))
+    inventory = report.get("inventory") or {}
+    row([])
+    row(("其他盘文件分类（只读）", "数量", "逻辑字节", "置信度来自扩展名/名称", "示例路径"))
+    for item in inventory.get("categories", []):
+        row((item["label"], item["count"], item["bytes"],
+             "扩展名规则，不是文件内容识别", "样本见下方完整分类清单"))
+    row([])
+    row(("其他盘分类明细（只读）", "类别 ID", "逻辑字节", "修改日期", "置信度", "完整路径", "分类依据"))
+    for item in inventory.get("classified_files", []):
+        row((inspector.CAT_LABELS[item["category"]], item["category"], item["size"],
+             item["mtime"], item["confidence"], item["path"], item["reason"]))
+    row([])
+    row(("其他盘 SHA-256 重复文件（手工复核，不自动删除）", "角色", "逻辑字节", "SHA-256", "风险", "文件完整路径", "建议"))
+    for group in inventory.get("duplicate_groups", []):
+        row((group["id"], "建议优先保留候选原件", group["size"], group["sha256"],
+             "保护", group["keeper"]["path"], group["keeper"]["reason"]))
+        for copy in group["copies"]:
+            row((group["id"], "仅供人工复核的重复文件", group["size"], group["sha256"],
+                 copy["risk"], copy["path"], copy["suggestion"]))
     return ("\ufeff" + buffer.getvalue()).encode("utf-8")
 
 
 class LocalHandler(BaseHTTPRequestHandler):
-    server_version = "CScanLocal/3.4"
+    server_version = "CScanLocal/3.5"
 
     def log_message(self, fmt, *args):
         # Avoid leaking the random token into logs.
@@ -1026,6 +1127,16 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, msg = manager.start_scan(body.get("mode", "fast"))
         elif parsed.path == "/api/large":
             ok, msg = manager.start_large(body.get("min_mb", 512))
+        elif parsed.path == "/api/inspect":
+            ok, msg = manager.start_inspection(body.get("drives", []), body.get("min_kb", 64))
+        elif parsed.path == "/api/inspect-refresh":
+            manager.refresh_drives()
+            ok, msg = True, "已重新读取本机可选盘符。"
+        elif parsed.path == "/api/inspect-files":
+            ok, msg, page = manager.classified_files_page(
+                body.get('category'), body.get('offset', 0), body.get('limit', 50))
+            return self._answer(200 if ok else 409, {
+                'ok': ok, 'message': msg, 'page': page if ok else None})
         elif parsed.path == "/api/everything":
             ok, msg = manager.start_everything_setup(body.get("confirm", ""))
         elif parsed.path == "/api/stop":
@@ -1047,8 +1158,8 @@ class LocalHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/reveal":
             ok, msg = manager.reveal(body.get("type", ""), body.get("id", ""))
         elif parsed.path == "/api/tool-action":
-            if manager.phase in ("scanning", "large", "cleaning", "setup"):
-                ok, msg = False, "扫描或清理期间不能启动其他系统工具。"
+            if manager.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
+                ok, msg = False, "扫描、查重或清理期间不能启动其他系统工具。"
             else:
                 ok, msg = self.server.toolbox.start(body.get("action"), body.get("confirm"))
         else:
@@ -1073,7 +1184,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.4.0-beta.2 - Windows 本地可视化磁盘分析器")
+    print("C-Scan Studio v3.5.0-beta.1 - Windows 本地多磁盘智能分析器")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")
