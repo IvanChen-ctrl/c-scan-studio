@@ -12,7 +12,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = '3.6.0-beta.2'
+VERSION = '3.6.0-beta.3'
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
@@ -21,12 +21,12 @@ SOURCE_NAMES = frozenset({
     'Drive_Inspector.py',
     'Security_Audit.py', 'Share_Offline_Bundle.py', 'Unified_Tools.py',
     'LICENSE', 'NOTICE.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md',
-    '.gitignore',
+    '.gitignore', '.gitattributes',
 })
 SOURCE_DIRS = frozenset({
     'internal', 'ui', 'LICENSES', 'Tools', 'Runtime_Offline',
     'docs', 'tests', 'tests_v3', 'tests_v31', 'tests_v32', 'tests_v33',
-    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362',
+    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362', 'tests_v363',
 })
 EXCLUDES = frozenset({
     '.git', '__pycache__', '_runtime', 'Installer_Files', 'Official_Offline',
@@ -78,12 +78,18 @@ def manifest_bytes(files):
 
 
 def make_zip(files, manifest, dst):
-    with zipfile.ZipFile(dst, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=8, strict_timestamps=True) as archive:
+    # Deterministic BYTES across Ubuntu/Windows. ZipInfo.create_system
+    # otherwise varies by host, and DEFLATE output can depend on zlib builds.
+    # Source is modest in size: STORE is preferable to nondeterministic ZIPs.
+    with zipfile.ZipFile(dst, 'w', compression=zipfile.ZIP_STORED, strict_timestamps=True) as archive:
         for name, data in [*files, ('FILE_INTEGRITY_SHA256.csv', manifest)]:
             info = zipfile.ZipInfo(PREFIX + '/' + name, DATE)
-            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3  # Explicit Unix-format permissions, even on Windows.
+            info.compress_type = zipfile.ZIP_STORED
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=8)
+            info.extra = b''
+            info.comment = b''
+            archive.writestr(info, data, compress_type=zipfile.ZIP_STORED)
 
 
 def main(argv=None):

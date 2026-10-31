@@ -42,7 +42,7 @@ import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 
-VERSION = "3.5.2-beta.1"
+VERSION = "3.6.0-beta.3"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -389,6 +389,10 @@ class Analyzer:
         self.snapshots = {}
         self.scan_complete = False
         self.inventory = inspector.empty_report()
+        # Four-key read-only indexes are built once per immutable scan snapshot.
+        # Never exposed via /api/state or included in downloadable reports.
+        self._classification_cache_source = None
+        self._classification_cache = {}
         self.drive_choices = []
         self.drive_choices_refreshed = 0.0
         self.large_files = []
@@ -449,6 +453,8 @@ class Analyzer:
                                             progress=tick)
             with self.lock:
                 self.inventory = found
+                self._classification_cache_source = None
+                self._classification_cache = {}
                 self.progress = 1
                 self.progress_max = 1
                 self.phase = 'idle'
@@ -486,10 +492,26 @@ class Analyzer:
                           for v in v.get('drives', [])}
                 if drive is not None and drive not in drives:
                     return False, '盘符不属于当前类别/子类的扫描快照。', None
-            all_items = [x for x in self.inventory.get('classified_files', [])
-                         if x['category'] == category
-                         and (subtype is None or x.get('subtype') == subtype)
-                         and (drive is None or x.get('volume') == drive)]
+            # The old implementation scanned all N records for each page.
+            # A 40,000-file snapshot with 400 pages visited 16M records.
+            # Cache four filter combinations under the lock; future page
+            # reads are O(page length), not O(snapshot length).
+            source = self.inventory.get('classified_files', [])
+            if source is not self._classification_cache_source:
+                index = {}
+                for record in source:
+                    cat = record['category']
+                    sub = record.get('subtype')
+                    volume = record.get('volume')
+                    keys = {(cat, None, None), (cat, sub, None),
+                            (cat, None, volume), (cat, sub, volume)}
+                    for key in keys:
+                        index.setdefault(key, []).append(record)
+                self._classification_cache = index
+                # Keep a strong reference: object ID reuse cannot cause stale
+                # indexes when a new immutable scan snapshot replaces source.
+                self._classification_cache_source = source
+            all_items = self._classification_cache.get((category, subtype, drive), [])
             if offset > len(all_items):
                 return False, '分页超出扫描清单。', None
             items = all_items[offset:offset + limit]
@@ -547,6 +569,8 @@ class Analyzer:
                 self.scan_complete = False
             elif phase == "inventory":
                 self.inventory = inspector.empty_report()
+                self._classification_cache_source = None
+                self._classification_cache = {}
             elif phase == "large":
                 self.large_files = []
                 self.large_info = {"source": "正在查询", "complete": False, "scanned_entries": 0}
@@ -1052,7 +1076,7 @@ def csv_bytes(report):
 
 
 class LocalHandler(BaseHTTPRequestHandler):
-    server_version = "CScanLocal/3.5"
+    server_version = "CScanLocal/3.6"
 
     def log_message(self, fmt, *args):
         # Avoid leaking the random token into logs.
@@ -1132,9 +1156,31 @@ class LocalHandler(BaseHTTPRequestHandler):
         else:
             self._answer(404, {"error": "找不到页面"})
 
+    def _discard_small_rejected_post_body(self):
+        """Bounded drain prevents WinSock TCP reset on a rejected POST.
+
+        Closing a socket while its small request body remains unread can
+        produce WinError 10053 instead of the intended HTTP 403 on Windows.
+        Never parse an unauthorized body or wait unboundedly for its bytes.
+        """
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if size < 0 or size > MAX_JSON:
+                return
+            if size:
+                previous = self.connection.gettimeout()
+                self.connection.settimeout(0.5)
+                try:
+                    self.rfile.read(size)
+                finally:
+                    self.connection.settimeout(previous)
+        except (ValueError, OSError):
+            pass
+
     def do_POST(self):
         parsed = urllib.parse.urlsplit(self.path)
         if not self._authorized(parsed, require_header=True):
+            self._discard_small_rejected_post_body()
             return self._answer(403, {"error": "拒绝不可信来源的修改请求"})
         try:
             size = int(self.headers.get("Content-Length", "0"))

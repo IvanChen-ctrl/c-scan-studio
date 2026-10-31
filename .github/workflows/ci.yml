@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   tests:
     name: Source and safety regressions (${{ matrix.os }})
@@ -26,6 +27,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify tracked source manifest before build (read-only)
+        run: python scripts/verify_source_manifest.py
       - name: Compile Python sources
         run: python -m compileall -q .
       - name: Regression tests
@@ -41,6 +44,7 @@ jobs:
           python -m unittest discover -s tests_v352
           python -m unittest discover -s tests_v36
           python -m unittest discover -s tests_v362
+          python -m unittest discover -s tests_v363
       - name: Execute browser interaction regressions (mocked local APIs)
         run: node tests_v362/browser_behavior.cjs
       - name: Build and check source-only release
@@ -48,4 +52,43 @@ jobs:
         run: |
           python scripts/build_release.py --outdir ../out
           python Security_Audit.py
-          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.2_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+          python -c "import zipfile,pathlib; p=pathlib.Path('../out/C_Scan_Studio_v3.6.0-beta.3_Source.zip'); z=zipfile.ZipFile(p); assert z.testzip() is None; assert not any(x.lower().endswith(('.exe','.dll','.msi','.whl')) for x in z.namelist());print('Source-only ZIP verified')"
+      - name: Copy source digest into workspace for artifact upload
+        shell: bash
+        run: |
+          mkdir -p artifact_digests
+          cp ../out/C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt artifact_digests/
+      - name: Upload source ZIP digest for cross-platform comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-digest-${{ matrix.os }}
+          path: artifact_digests/C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  identical_source_archives:
+    name: Verify identical source ZIP digests across OS
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: source-digest-*
+          path: artifact-digests
+      - name: Fail if Windows and Ubuntu source ZIP bytes differ
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t hashes < <(find artifact-digests -type f -name '*_Source.zip.sha256.txt' | sort)
+          if [[ "${#hashes[@]}" -ne 2 ]]; then
+            echo 'Expected exactly two digest files from Windows and Ubuntu.'
+            exit 1
+          fi
+          linux_hash=$(cut -d' ' -f1 "${hashes[0]}")
+          windows_hash=$(cut -d' ' -f1 "${hashes[1]}")
+          if [[ "$linux_hash" != "$windows_hash" ]]; then
+            echo "FAIL: cross-platform ZIP mismatch: $linux_hash vs $windows_hash"
+            exit 1
+          fi
+          echo "PASS: Windows and Ubuntu source ZIP SHA-256 are identical: $linux_hash"
+
