@@ -74,6 +74,8 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn('tests_v363', release)
         self.assertIn('EXPECTED_TAG: v3.6.0-beta.3', release)
         self.assertIn('tests_v363', build_release.SOURCE_DIRS)
+        self.assertIn('python scripts/verify_source_manifest.py', ci)
+        self.assertIn('python scripts/verify_source_manifest.py', release)
 
 class PaginationLoadTests(unittest.TestCase):
     def test_40k_file_catalog_400_pages_do_not_repeat_16m_row_scans(self):
