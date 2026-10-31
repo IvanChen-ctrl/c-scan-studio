@@ -35,3 +35,5 @@ Windows 和 Ubuntu 的同一次 CI 均重现上述三项失败、一项异常；
 ## 红灯阶段进一步修复
 
 首次加入跨平台 ZIP 摘要上传时，GitHub `actions/upload-artifact` 不接受 `../out` 相对路径；修复为复制摘要到工作区内的 `artifact_digests/` 后上传。Windows 端又出现间歇性 WinError 10053：服务器在拒绝跨域 POST 后关闭尚未读完请求体的 socket；改为限时有界丢弃读，新增 56 次并发未授权请求的回归断言。此举不改变无效 Origin/Token 的 403 安全边界。
+
+进一步追踪：第一次双平台 ZIP 对比仍 FAIL，说明仅有 `.gitattributes` 还不够。发布工具继续补充固定 `ZipInfo.create_system=3` 和 `ZIP_STORED`，消除平台元数据及 DEFLATE 压缩差异；新增 ZIP 条目元数据断言，最终以两平台 CI 的真实摘要相同为通过条件。
