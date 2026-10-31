@@ -127,6 +127,38 @@ class LargePreviewPagination(unittest.TestCase):
         self.assertFalse(mgr.start_clean(["safe"], "DELETE", preview["ticket"])[0])
 
 
+
+class InventoryCancellation(unittest.TestCase):
+    def test_running_multi_drive_inventory_accepts_stop_without_touching_disk(self):
+        with mock.patch.object(app.vendor, "local_cli_if_verified", return_value=None):
+            mgr = app.Analyzer()
+        entered = threading.Event()
+
+        def isolated_inspection(roots, stop, **kwargs):
+            entered.set()
+            if not stop.wait(5):
+                raise AssertionError("Inventory stop was never signaled")
+            result = inspector.empty_report()
+            result["cancelled"] = True
+            return result
+
+        with mock.patch.object(app.inspector, "select_drives",
+                               return_value=[Path("D:/SYNTHETIC")]), \
+             mock.patch.object(app.inspector, "inspect_roots",
+                               side_effect=isolated_inspection):
+            started, message = mgr.start_inspection(["D:"], 64)
+            self.assertTrue(started, message)
+            self.assertTrue(entered.wait(5))
+            stopped, message = mgr.stop()
+            self.assertTrue(stopped, message)
+            self.assertTrue(mgr.cancel.is_set())
+            mgr.thread.join(timeout=6)
+            self.assertFalse(mgr.thread.is_alive(), "Cancelled scan worker must exit")
+        self.assertEqual(mgr.phase, "idle")
+        self.assertTrue(mgr.inventory["cancelled"])
+        self.assertIsNone(mgr.cleanup_preview)
+
+
 class ReadOnlyDirectoryRaces(unittest.TestCase):
     def test_queued_directory_replaced_with_symlink_never_scans_outside(self):
         with TemporaryDirectory(prefix="cscan_owned_") as owned, \
