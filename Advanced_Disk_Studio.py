@@ -41,7 +41,7 @@ import Everything_Official_Manager as vendor
 import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 
-VERSION = "3.4.0-beta.1"
+VERSION = "3.4.0-beta.2"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -700,9 +700,70 @@ class Analyzer:
                 "warning": "预览仅基于上次扫描快照。删除前仍会逐文件复核；跳过变更或受保护的文件。操作不经过回收站，不能撤销。",
             }
 
-    def discard_preview(self):
-        """Revoke a pending preflight without affecting any scan result."""
+    def preview_files(self, ticket, offset=0, limit=50):
+        """Read-only, bounded pagination over the *exact* selected scan snapshots.
+
+        A client cannot supply file paths or read any other target. Pagination
+        does not renew the ticket; cancellation, expiration, rescan and cleaning
+        invalidate it. The underlying snapshots remain immutable while idle.
+        """
         with self.lock:
+            pending = self.cleanup_preview
+            if (not pending or not isinstance(ticket, str) or not ticket or
+                    not secrets.compare_digest(ticket, pending["ticket"]) or
+                    time.monotonic() >= pending["expires"]):
+                if pending and time.monotonic() >= pending["expires"]:
+                    self.cleanup_preview = None
+                return False, "预览凭证无效或已过期。请重新生成预览。", None
+            if (type(offset) is not int or type(limit) is not int or
+                    offset < 0 or not 1 <= limit <= 100):
+                return False, "分页参数无效：offset 必须非负，limit 不得超过 100。", None
+            jobs, error = self._validated_jobs(list(pending["ids"]))
+            if error:
+                self.cleanup_preview = None
+                return False, error, None
+            total = sum(len(shots) for _id, _target, shots, _age in jobs)
+            if offset > total:
+                return False, "分页位置超出本次预览范围。", None
+            files = []
+            position = 0
+            for key, target, shots, age_days in jobs:
+                end = position + len(shots)
+                if end <= offset:
+                    position = end
+                    continue
+                if position >= offset + limit:
+                    break
+                lo = max(0, offset - position)
+                hi = min(len(shots), offset + limit - position)
+                for index in range(lo, hi):
+                    shot = shots[index]
+                    try:
+                        modified = datetime.fromtimestamp(shot.mtime_ns / 1_000_000_000).strftime("%Y-%m-%d")
+                    except (OverflowError, ValueError, OSError):
+                        modified = "未知"
+                    files.append({"number": position + index + 1,
+                                  "category": target.name,
+                                  "path": shot.path,
+                                  "bytes": shot.size,
+                                  "modified": modified,
+                                  "age_days": age_days})
+                position = end
+            next_offset = offset + len(files)
+            return True, "仅返回当前预览中的文件快照，未进行删除。", {
+                "offset": offset, "limit": limit, "total": total, "files": files,
+                "next_offset": next_offset if next_offset < total else None,
+                "expires_in_seconds": max(0, int(pending["expires"] - time.monotonic())),
+                "warning": "文件路径和大小来自扫描时的快照。执行删除之前仍将逐文件重新核验。",
+            }
+
+    def discard_preview(self, ticket=None):
+        """Revoke only the named pending ticket; stale tabs must not revoke new previews."""
+        with self.lock:
+            pending = self.cleanup_preview
+            if ticket is not None and (not pending or not isinstance(ticket, str) or
+                    not secrets.compare_digest(ticket, pending["ticket"])):
+                return False, "预览已更换或过期；旧页面不能撤销新预览。"
             self.cleanup_preview = None
         return True, "预览授权已撤销；文件没有删除。"
 
@@ -733,6 +794,8 @@ class Analyzer:
         return True, "已开始按预览清单清理"
 
     def _clean(self, jobs):
+        before_disk = self._disk()  # best-effort measurement, not a guarantee
+        start_time = time.monotonic()
         running = engine.active_processes()
         result_rows = []
         for index, (key, target, snapshots, age_days) in enumerate(jobs):
@@ -748,9 +811,21 @@ class Analyzer:
                   "bytes": sum(x["bytes"] for x in result_rows),
                   "errors": sum(x["errors"] for x in result_rows),
                   "skipped": sum(x["skipped"] for x in result_rows)}
+        after_disk = self._disk()
+        measurement_ok = bool(before_disk.get("total") and after_disk.get("total") and
+                              before_disk["total"] == after_disk["total"])
+        disk_comparison = {
+            "available": measurement_ok,
+            "before_free": before_disk["free"] if measurement_ok else None,
+            "after_free": after_disk["free"] if measurement_ok else None,
+            "net_free_change": (after_disk["free"] - before_disk["free"]) if measurement_ok else None,
+            "duration_seconds": round(max(0, time.monotonic() - start_time), 2),
+            "disclaimer": "C 盘净空闲空间变化包含同期其他程序的读写，不等同于本工具独占释放量。",
+        }
         with self.lock:
             self.last_cleanup = {"at": datetime.now().isoformat(timespec="seconds"),
                                  "items": result_rows, "totals": totals,
+                                 "disk_comparison": disk_comparison,
                                  "aborted": self.cancel.is_set()}
             self.phase = "idle"
             self.scan_complete = False
@@ -959,8 +1034,13 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, msg, preview = manager.preview_clean(body.get("ids", []))
             return self._answer(200 if ok else 409, {"ok": ok, "message": msg,
                                                      "preview": preview if ok else None})
+        elif parsed.path == "/api/preview-files":
+            ok, msg, page = manager.preview_files(body.get("ticket"),
+                                                   body.get("offset", 0), body.get("limit", 50))
+            return self._answer(200 if ok else 409, {"ok": ok, "message": msg,
+                                                     "page": page if ok else None})
         elif parsed.path == "/api/cancel-preview":
-            ok, msg = manager.discard_preview()
+            ok, msg = manager.discard_preview(body.get("ticket"))
         elif parsed.path == "/api/clean":
             ok, msg = manager.start_clean(body.get("ids", []), body.get("confirm", ""),
                                           body.get("ticket"))
@@ -993,7 +1073,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.4.0-beta.1 - Windows 本地可视化磁盘分析器")
+    print("C-Scan Studio v3.4.0-beta.2 - Windows 本地可视化磁盘分析器")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")

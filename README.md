@@ -1,4 +1,4 @@
-# C-Scan Studio v3.4.0-beta.1 / C 盘智能扫描与安全可控清理
+# C-Scan Studio v3.4.0-beta.2 / C 盘智能扫描与安全可控清理
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
@@ -7,15 +7,15 @@
 
 ## 1. 开始使用
 
-1. 从 GitHub 预发布版下载 `C_Scan_Studio_v3.4.0-beta.1_Source.zip`，独立校验下载页提供的 SHA-256。
-2. 解压到例如 `D:\C_Scan_Studio_v3.4.0-beta.1`，不要直接在 ZIP 内运行。
+1. 从 PR #3 对应的测试包下载 `C_Scan_Studio_v3.4.0-beta.2_Source.zip` 并核对独立 SHA-256；正式 GitHub 预发布版需经 GitHub 检查及发布后才会出现。
+2. 解压到例如 `D:\C_Scan_Studio_v3.4.0-beta.2`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.4.0-beta.1 图形界面入口 | 说明 |
+| 操作 | v3.4.0-beta.2 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -44,7 +44,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.4.0-beta.1_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.4.0-beta.2_Source.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**
@@ -83,3 +83,13 @@ python scripts/build_release.py --outdir ../cscan-dist
 - **公开核验**：已有的 [v3.3.1 稳定版](https://github.com/IvanChen-ctrl/c-scan-studio/releases/tag/v3.3.1) 保持不变，新预发行版产生**新的 SHA-256**，以前的 VirusTotal 报告不能当成新版查毒结果。
 - **发布建议**：请先在 Windows 本机只读扫描测试，再进行真实删除测试。当前不能宣称经过实机验证。
 
+
+## v3.4.0-beta.2 增强：完整候选路径预览 + 清理后净空间比较
+
+- 清理预览窗口新增 **全量候选文件分页**（每页 50 条），来自既有扫描快照；不会从浏览器读取任意路径。
+- 分页接口要求本地同源会话和短时预览凭证，分页不会续期。取消、重新扫描或实际执行后，旧凭证立即失效。
+- 清理结束后分别展示 **成功删除文件的逻辑大小**、**执行前 C 盘可用空间**及**执行后净空间变化**。后者可能受到其他程序同时写入磁盘影响，不表示独占回收量。
+- 初始默认不勾选任何清理项；预览未能成功读取第一页时，最终删除按钮保持不可用。
+- 注意：仅通过模拟测试、GitHub CI 和代码扫描的情况，不能代替在真实 Windows 系统上的清理测试。
+
+Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>C-Scan Studio v3.4.0-beta.1 | 统一控制台 · 安全可控</title>
+<title>C-Scan Studio v3.4.0-beta.2 | 统一控制台 · 安全可控</title>
 <style>
 :root{font-family:Segoe UI,Microsoft YaHei UI,Microsoft YaHei,Arial,sans-serif;color:#dce6f4;background:#08111f;font-synthesis:none;--surface:#101d30;--surface2:#142338;--line:#273a52;--muted:#91a4bb;--primary:#66b2ff;--green:#41d6a4;--amber:#ffcb60;--orange:#ff9b60;--red:#ff7387;--gray:#b0b7c8;--radius:15px}
 *{box-sizing:border-box}body{margin:0;min-width:360px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:var(--primary)}.app{display:flex;min-height:100vh}
@@ -61,12 +61,28 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
 .review-files{margin:12px 24px;padding:10px 13px;border:1px solid #e1e9f1;border-radius:10px;font-size:12px}.review-files summary{font-weight:700;cursor:pointer;color:#225278}.review-samples{font:11px/1.9 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto;color:#506d82;margin-top:9px}.review-warning{margin:13px 24px;padding:13px 15px;background:#fff8eb;border:1px solid #efd8ae;border-radius:11px;color:#855b19;font-size:12px;line-height:1.8}
 .review-buttons{border-top:1px solid #dfe8f0;padding:15px 24px 19px;display:flex;justify-content:end;flex-wrap:wrap;gap:10px;background:#f9fcff}
 @media(max-width:650px){.cleanup-dialog{width:96vw}.review-head{padding:18px}.review-metrics{padding:12px 18px}.review-table-wrap{padding:2px 10px}.review-buttons{padding:15px}.review-table{min-width:0}.review-table thead{display:none}.review-table tbody tr{display:flex;flex-wrap:wrap;gap:2px 8px;padding:9px 4px;border-bottom:1px solid #dfe9f2}.review-table tbody tr td{border:0;flex:1 1 27%;padding:5px}.review-table tbody tr td:first-child{flex:1 1 100%}}
+
+/* v3.4 beta2: bounded page-by-page file preview and measured post-clean summary */
+.review-files-scroll{max-height:230px;overflow:auto;border:1px solid #e1e9f1;border-radius:9px;margin-top:10px}
+.review-file-table{min-width:610px;color:#274560}
+.review-file-table th{background:#f0f7fc;color:#3d627f}
+.review-file-table td{font-size:11px;line-height:1.55;padding:8px 10px;color:#284b65;border-color:#e2eaf1}
+.review-file-table td.file-name{overflow-wrap:anywhere;word-break:break-word;font-family:Consolas,'Microsoft YaHei',monospace;font-size:11px}
+.review-pager{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;color:#4e6f89;font-size:11px}
+.cleanup-result{background:#eaf8f6;border:1px solid #b1ded2;border-radius:12px;margin-bottom:14px;padding:14px 17px;color:#1d5e51}
+.cleanup-result h2{font-size:14px;color:#18604c;margin:0 0 8px}
+.cleanup-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cleanup-result-metric{border-left:2px solid #8dd4bd;padding-left:10px;min-width:0}
+.cleanup-result-metric span{display:block;font-size:11px;color:#4b7772}
+.cleanup-result-metric strong{font-size:18px;display:block;margin:5px 0;color:#135b4b;font-variant-numeric:tabular-nums}
+.cleanup-result p{font-size:11px;margin:10px 0 0;color:#537e79;line-height:1.6}
+@media(max-width:650px){.review-file-table{min-width:540px}.review-files-scroll{max-height:220px}.cleanup-result-grid{grid-template-columns:1fr}.cleanup-result-metric strong{font-size:16px}}
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="sidebar">
-  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">统一控制台 / 安全可控 v3.4.0-beta.1</div></div></div>
+  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">统一控制台 / 安全可控 v3.4.0-beta.2</div></div></div>
   <div class="nav-title">主要功能</div>
   <button class="nav-btn active" id="nav-cache" onclick="switchPage('cache')"><span class="nav-ico">◫</span><span class="nav-text">智能缓存清理</span></button>
   <button class="nav-btn" id="nav-large" onclick="switchPage('large')"><span class="nav-ico">⌕</span><span class="nav-text">大文件快速搜索</span></button>
@@ -88,6 +104,11 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
     </div><div class="flow-action"><div class="flow-reassure">无需管理员权限<br>默认不会删除</div><button class="button primary" id="btn-hero-fast" onclick="startScan('fast')">⚡ 开始安全扫描</button></div>
   </div>
   <div class="safety-ribbon" aria-label="本软件的安全可控原则"><div><h2>安全不是一句“无毒保证”，而是一套可检查的控制</h2><p>一键入口只负责启动界面。扫描只读、删除逐文件复核；清理前必须主动勾选、预览原始扫描清单，再输入 DELETE。</p></div><div class="safety-points"><span class="safety-point">✓ 默认零勾选</span><span class="safety-point">✓ 删除前逐项预览</span><span class="safety-point">✓ 预览凭证仅可使用一次</span><span class="safety-point">✓ 本机 127.0.0.1</span><span class="safety-point">✓ 不自动上传</span><span class="safety-point">✓ 模型 / 环境保护</span></div></div>
+  <section class="cleanup-result hide" id="cleanup-result" aria-live="polite"><h2>上次清理结果 · 实际与估算分开展示</h2>
+    <div class="cleanup-result-grid"><div class="cleanup-result-metric"><span>成功删除文件 / 逻辑大小</span><strong id="result-logical">—</strong></div>
+    <div class="cleanup-result-metric"><span>本轮之前 C 盘可用空间</span><strong id="result-before">—</strong></div>
+    <div class="cleanup-result-metric"><span>本轮之后 C 盘净变化</span><strong id="result-delta">—</strong></div></div>
+    <p id="result-note">磁盘净变化可能受其他程序并发写入影响，不能直接视为本工具实际回收量。</p></section>
   <div class="metrics"><div class="metric"><div class="metric-label">C 盘可用空间</div><div class="metric-value" id="m-free">—</div><div class="metric-foot" id="m-percent">正在读取磁盘</div></div><div class="metric"><div class="metric-label">绿色 · 建议优先</div><div class="metric-value accent-green" id="m-green">—</div><div class="metric-foot" id="m-green-foot">仅已完成扫描项目</div></div><div class="metric"><div class="metric-label">黄色 · 可选清理</div><div class="metric-value accent-amber" id="m-amber">—</div><div class="metric-foot" id="m-amber-foot">需要自行勾选</div></div><div class="metric"><div class="metric-label">已识别候选文件</div><div class="metric-value accent-blue" id="m-count">—</div><div class="metric-foot" id="m-count-foot">缓存白名单文件数</div></div></div>
   <div class="usage"><strong id="disk-usage-label">C 盘使用情况</strong><div class="storage-track" role="progressbar" aria-label="C盘已使用空间" aria-valuemin="0" aria-valuemax="100" id="disk-usage-track"><span id="disk-usage-bar"></span></div><span id="disk-usage-note">本机磁盘数据</span></div>
   <div class="status-panel"><div class="status-left"><span class="dot" id="task-dot"></span><span class="status-text" id="task-msg">准备加载...</span></div><div class="progressbox"><div class="progress"><span id="progressbar" style="width:0%"></span></div><span class="progress-num" id="progressnum">0%</span><button class="button tiny" id="btn-stop" disabled onclick="stopTask()">停止</button></div></div>
@@ -147,7 +168,15 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
     <p>这一步尚未删除任何文件。请检查类别、原始路径及候选文件数。操作一旦执行，不经过回收站，不能撤销。</p></div>
   <div class="review-metrics" id="preview-metrics">等待生成预览...</div>
   <div class="review-table-wrap"><table class="review-table"><thead><tr><th>清理类别 / 文件夹</th><th>风险</th><th>候选文件</th><th>逻辑大小</th></tr></thead><tbody id="preview-rows"></tbody></table></div>
-  <details class="review-files"><summary>查看本轮候选文件路径样本（最多 12 个）</summary><div id="preview-samples" class="review-samples"></div></details>
+  <details class="review-files" id="preview-files-detail" open><summary>逐文件查看完整清理清单（分页，每页最多 50 个；仅显示扫描快照）</summary>
+    <div class="review-pager"><span id="preview-page-state" role="status">正在读取第 1 页...</span><span>
+      <button type="button" class="button tiny" id="preview-prev" disabled onclick="loadPreviewPage(previewPageOffset-50)">上一页</button>
+      <button type="button" class="button tiny" id="preview-next" disabled onclick="loadPreviewPage(previewPageOffset+50)">下一页</button>
+    </span></div>
+    <div class="review-files-scroll"><table class="review-file-table"><thead><tr><th>序号</th><th>缓存类别</th><th>候选文件完整路径（只读）</th><th>逻辑大小</th><th>修改日期</th></tr></thead>
+      <tbody id="preview-file-rows"><tr><td colspan="5">等待预览清单...</td></tr></tbody></table></div>
+    <p class="soft">可逐页查看所有候选文件。页面不会自动打开文件或上传清单。文件在实际执行前仍逐项复核。</p>
+  </details>
   <div class="review-warning" id="preview-warning">每个文件将在执行前重新核验。仅清理仍符合白名单和扫描快照的文件。</div>
   <div class="review-buttons"><button type="button" class="button" onclick="closePreview()">取消，暂不清理</button><button type="button" class="button danger" id="preview-approve" onclick="approvePreview()">已确认，输入 DELETE</button></div>
 </dialog>
@@ -156,6 +185,7 @@ body{background:#f4f7fb;color:#172b45;letter-spacing:.01em}
 const session = new URLSearchParams(location.search).get('t') || '';
 const sections=['cache','large','advice','tools','security','logs'];
 let view='cache', latest=null, selected=new Set(), selectedRow=null, selectedKind=null;
+let previewPageOffset=0, previewPageRequest=0;
 let pendingPreview=null, sortBy='priority', sortDir=1, pollRunning=false;
 const E=id=>document.getElementById(id);
 const fmt=n=>{n=Number(n)||0;if(n<1024)return Math.round(n)+' B';const U=['KiB','MiB','GiB','TiB'];let i=-1;do{n/=1024;i++}while(n>=1024&&i<U.length-1);return n.toFixed(n>=100?0:n>=10?1:2)+' '+U[i]};
@@ -205,6 +235,27 @@ function renderToolbox(){const t=latest?.toolbox||{},py=t.python||{},every=lates
 function allSelected(){const byid=new Map(latest?.items?.map(x=>[x.id,x])||[]);return [...selected].map(id=>byid.get(id)).filter(x=>x&&x.allowed)}
 function selectedSize(){return allSelected().reduce((n,x)=>n+x.size,0)}
 function updateSelection(){const list=allSelected(),total=selectedSize();E('selected-size').textContent=fmt(total)+' / '+list.length+' 项';E('btn-clean').disabled=!list.length||latest?.busy;const green=(latest?.items||[]).filter(x=>x.allowed&&x.risk==='green');E('check-all-green').checked=green.length>0&&green.every(x=>selected.has(x.id));E('check-all-green').disabled=!green.length||latest?.busy}
+async function loadPreviewPage(offset){
+ const p=pendingPreview;if(!p)return;
+ if(!Number.isInteger(offset)||offset<0)return;
+ const requestId=++previewPageRequest;
+ E('preview-page-state').textContent='正在读取文件页...';
+ E('preview-prev').disabled=true;E('preview-next').disabled=true;
+ try{
+  const response=await post('/api/preview-files',{ticket:p.ticket,offset,limit:50});
+  if(pendingPreview!==p||requestId!==previewPageRequest)return; // Ignore stale responses.
+  const page=response.page;
+  if(!page||!Array.isArray(page.files))throw Error('文件清单响应无效');
+  previewPageOffset=page.offset;
+  E('preview-file-rows').innerHTML=page.files.map(x=>`<tr><td class="tabular">${Number(x.number).toLocaleString('zh-CN')}</td><td>${esc(x.category)}</td><td class="file-name">${esc(x.path)}</td><td class="tabular">${fmt(x.bytes)}</td><td class="tabular">${esc(x.modified)}</td></tr>`).join('')||'<tr><td colspan="5">没有候选文件</td></tr>';
+  E('preview-page-state').textContent=`第 ${page.total?Math.floor(page.offset/50)+1:0} / ${Math.ceil(page.total/50)} 页 · 显示 ${page.files.length?page.offset+1:0}–${page.offset+page.files.length} / ${page.total.toLocaleString('zh-CN')} 个 · 凭证约剩 ${page.expires_in_seconds} 秒`;
+  E('preview-prev').disabled=page.offset===0;
+  E('preview-next').disabled=page.next_offset===null;
+  E('preview-approve').disabled=false;
+ }catch(e){
+  if(pendingPreview===p&&requestId===previewPageRequest){E('preview-page-state').textContent='文件清单读取失败：'+e.message;E('preview-approve').disabled=true;}
+ }
+}
 async function cleanSelected(){
  const rows=allSelected();if(!rows.length)return;
  if(latest?.busy){notify('请在任务结束后重新预览。');return}
@@ -216,12 +267,14 @@ async function cleanSelected(){
   const amber=p.categories.some(x=>x.risk==='amber');
   E('preview-metrics').textContent=`${p.categories.length} 类 · ${p.total_files.toLocaleString('zh-CN')} 个候选文件 · 预计最多 ${fmt(p.total_bytes)} · 预览凭证 ${p.expires_in_seconds} 秒内有效`;
   E('preview-rows').innerHTML=p.categories.map(x=>`<tr><td><strong>${esc(x.name)}</strong><div class="mono">${esc(x.path)}</div></td><td>${riskTag(x.risk)}</td><td class="tabular">${Number(x.files).toLocaleString()}</td><td class="tabular">${fmt(x.bytes)}</td></tr>`).join('');
-  E('preview-samples').textContent=(p.sample_paths||[]).join('\n')||'没有文件路径样本';
-  E('preview-warning').textContent=p.warning+(amber?' 包含黄色项目：缓存可能需要重新下载或重建。':'')+' 仅显示部分文件路径样本，所有候选仍以服务器完整扫描快照为准。';
+  E('preview-warning').textContent=p.warning+(amber?' 包含黄色项目：缓存可能需要重新下载或重建。':'')+' 全部候选可在下方分页查看，数据均来自本次扫描快照。';
+  E('preview-approve').disabled=true;
+  E('preview-file-rows').innerHTML='<tr><td colspan="5">读取完整文件预览的第一页...</td></tr>';
   E('clean-preview-dialog').showModal();
+  await loadPreviewPage(0);
  }catch(e){pendingPreview=null;alert('不能生成删除预览：'+e.message)}
 }
-function closePreview(){const active=!!pendingPreview;pendingPreview=null;E('clean-preview-dialog').close();if(active)post('/api/cancel-preview').catch(e=>notify('预览已关闭，但凭证撤销失败：'+e.message))}
+function closePreview(){const previous=pendingPreview;pendingPreview=null;previewPageOffset=0;previewPageRequest++;E('clean-preview-dialog').close();if(previous)post('/api/cancel-preview',{ticket:previous.ticket}).catch(e=>notify('预览已关闭；旧凭证会自动失效：'+e.message))}
 async function approvePreview(){
  const p=pendingPreview;if(!p)return;
  const typed=prompt('最后确认：删除已预览的缓存文件不经过回收站。请输入大写 DELETE：','');
@@ -231,7 +284,7 @@ async function approvePreview(){
  catch(e){pendingPreview=null;E('clean-preview-dialog').close();alert('未执行清理：'+e.message)}
  finally{E('preview-approve').disabled=false}
 }
-E('clean-preview-dialog').addEventListener('close',()=>{if(pendingPreview){pendingPreview=null;post('/api/cancel-preview').catch(()=>notify('预览关闭；授权将在 120 秒内自动过期'))}});
+E('clean-preview-dialog').addEventListener('close',()=>{if(pendingPreview){const previous=pendingPreview;pendingPreview=null;previewPageRequest++;post('/api/cancel-preview',{ticket:previous.ticket}).catch(()=>notify('预览关闭；授权将在 120 秒内自动过期'))}});
 
 async function reveal(){if(!selectedRow||!selectedKind)return;try{await post('/api/reveal',{id:selectedRow,type:selectedKind})}catch(e){alert(e.message)}}
 function showDetail(){let item;if(selectedKind==='cache')item=(latest?.items||[]).find(x=>x.id===selectedRow);if(selectedKind==='large')item=(latest?.large_files||[]).find(x=>x.id===selectedRow);if(!item){E('detail-content').innerHTML='<div class="detail-title">请选择一个项目</div><p class="soft">点击列表项目后，可以看到它的具体路径、优先级和风险说明。</p>';return}const isCache=selectedKind==='cache';E('detail-content').innerHTML=`<div class="detail-title">${esc(isCache?item.name:(item.path.split(/[\\/]/).pop()))}</div><div class="detail-tags">${prioTag(item.priority)} ${riskTag(item.risk)}</div><div class="detail-row"><div class="key">完整位置</div><div class="val mono">${esc(item.path)}</div></div><div class="detail-row"><div class="key">${isCache?'符合清理条件的文件':'文件大小'}</div><div class="val">${fmt(item.size)} ${isCache?'· '+item.count+' 个文件':''}</div></div><div class="detail-row"><div class="key">推荐理由</div><div class="val">${esc(item.reason)}</div></div>${isCache?`<div class="detail-row"><div class="key">扫描与安全限制</div><div class="val">${esc(item.note)}<br>保留最近 ${item.age_days} 天。<br>状态：${esc(item.state)}<br>${item.allowed?'允许勾选。': '禁止在此界面清理。'} </div></div>`:`<div class="detail-row"><div class="key">处理原则</div><div class="val">${esc(item.action)}<br>修改日期：${esc(item.mtime)}</div></div>`}<button class="button wide" id="btn-reveal" style="margin-top:14px" onclick="reveal()">在文件资源管理器中打开</button>`;
@@ -241,10 +294,22 @@ function renderCache(){const list=sortedCache(),el=E('cache-rows');if(!list.leng
 function renderLarge(){const query=E('search-large').value.trim().toLowerCase();const list=(latest?.large_files||[]).filter(x=>!query||(x.path+' '+x.reason).toLowerCase().includes(query));E('large-rows').innerHTML=list.length?list.map(x=>`<tr data-kind="large" data-id="${esc(x.id)}" class="${selectedRow===x.id&&selectedKind==='large'?'selected':''}"><td>${prioTag(x.priority)}</td><td>${riskTag(x.risk)}</td><td class="tabular">${fmt(x.size)}</td><td class="tabular">${esc(x.mtime)}</td><td><div class="cell-name" title="${esc(x.path)}">${esc(x.path.split(/[\\/]/).pop())}</div><div class="cell-path" title="${esc(x.path)}">${esc(x.path)}</div></td></tr>`).join(''):'<tr><td colspan="5" class="empty">暂无大文件结果。点击“开始查找”或调整筛选。</td></tr>';const info=latest?.large_info||{}, warning=info.warning||'';E('large-source').textContent=`数据来源：${info.source||'未扫描'} ${info.scanned_entries?'· 记录/检查 '+Number(info.scanned_entries).toLocaleString()+' 条':''} ${info.complete?'· 已完成':'· 可能不完整'}。${warning}`;E('large-summary').textContent=`显示 ${list.length} 项 / ${(latest?.large_files||[]).length} 项；此表只读，不允许删除。`}
 function renderAdvice(){E('advice-list').innerHTML=(latest?.advisories||[]).map(x=>`<div class="note-row">${riskTag(x.risk)}<div style="min-width:0"><div class="note-title">${esc(x.name)} &nbsp; ${prioTag(x.priority)}</div><div class="note-body">${esc(x.reason)}</div></div></div>`).join('')}
 function renderLogs(){E('log-box').textContent=(latest?.logs||[]).map(x=>`[${x.time}] ${x.message}`).join('\n')||'暂无日志'}
+function renderCleanupResult(){
+ const result=latest?.last_cleanup;const element=E('cleanup-result');
+ element.classList.toggle('hide',!result);
+ if(!result)return;
+ const totals=result.totals||{},disk=result.disk_comparison||{};
+ E('result-logical').textContent=`${Number(totals.deleted||0).toLocaleString('zh-CN')} 个 · ${fmt(totals.bytes)}`;
+ E('result-before').textContent=disk.available?fmt(disk.before_free):'无法读取';
+ const delta=disk.net_free_change;
+ E('result-delta').textContent=disk.available?(delta>=0?'+':'−')+fmt(Math.abs(delta)):'无法测量';
+ E('result-note').textContent=`${result.at||''} · ${result.aborted?'用户中止 · ':''}跳过 ${Number(totals.skipped||0)} 项，错误 ${Number(totals.errors||0)} 项。`+
+ (disk.available?`清理后可用 ${fmt(disk.after_free)}；C 盘净变化受同期其他程序读写影响，不保证等于实际清理量。`:'无法获取一致的 C 盘前后测量值；文件删除计数和逻辑大小仍可参考。');
+}
 function draw(){if(!latest)return;const d=latest.disk||{},rows=latest.items||[],g=rows.filter(x=>x.allowed&&x.risk==='green'),a=rows.filter(x=>x.allowed&&x.risk==='amber');E('m-free').textContent=d.total?fmt(d.free):'不可用';E('m-percent').textContent=d.total?`总容量 ${fmt(d.total)} · 已使用 ${Math.round(d.used/d.total*100)}%`:'无法取得 C 盘用量';E('m-green').textContent=fmt(g.reduce((v,x)=>v+x.size,0));E('m-green-foot').textContent=`${g.length} 项 · 默认推荐`;E('m-amber').textContent=fmt(a.reduce((v,x)=>v+x.size,0));E('m-amber-foot').textContent=`${a.length} 项 · 主动选择`;E('m-count').textContent=rows.reduce((n,x)=>n+x.count,0).toLocaleString();E('m-count-foot').textContent=`${rows.length} 个已识别目录目标`;const percent=d.total?Math.round(d.used/d.total*100):0;E('disk-usage-bar').style.width=percent+'%';E('disk-usage-track').setAttribute('aria-valuenow',String(percent));E('disk-usage-note').textContent=d.total?('已使用 '+percent+'%'):'待检测';
  const busy=latest.busy;E('task-dot').classList.toggle('busy',busy);E('task-msg').textContent=latest.message||'';const pct=Math.max(0,Math.min(100,Math.round((latest.progress||0)/Math.max(1,latest.progress_max||1)*100)));E('progressbar').style.width=pct+'%';E('progressnum').textContent=pct+'%';for(const b of ['btn-fast','btn-full','btn-large','btn-everything','btn-hero-fast'])E(b).disabled=busy;E('btn-stop').disabled=!busy;E('esSide').textContent='索引：'+(latest.es_status||'检测中'); if(latest.everything?.ready)E('btn-everything').textContent='重新启动/校验 Everything';
 const ids=new Set(rows.map(x=>x.id));for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed))selected.delete(k);
- renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
+ renderCleanupResult();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
 async function poll(){if(pollRunning)return;pollRunning=true;try{latest=await getState();draw()}catch(e){notify('本地连接暂时失败：'+e.message)}finally{pollRunning=false}}
 E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);pendingPreview=null;updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
 E('large-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;selectedRow=row.dataset.id;selectedKind='large';renderLarge();showDetail()});

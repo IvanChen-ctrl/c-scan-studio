@@ -45,13 +45,13 @@ def prepare_share(root=HERE, output=None):
         path = root / 'Tools' / 'Official_Offline' / spec['name']
         vendor.verify_archive(path, spec)
         checked.append((path, 'Tools/Official_Offline/' + spec['name']))
-    archive_output = Path(output) if output else root.parent / 'C_Scan_Studio_v3.4.0-beta.1_Offline_Everything_For_Friends.zip'
+    archive_output = Path(output) if output else root.parent / 'C_Scan_Studio_v3.4.0-beta.2_Offline_Everything_For_Friends.zip'
     if root.resolve() in archive_output.resolve().parents:
         raise RuntimeError('导出 ZIP 不能放到源码目录内部')
     archive_output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive_output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=7) as container:
         for path, name in sorted(checked, key=lambda x: x[1]):
-            container.write(path, 'C_Scan_Studio_v3.4.0-beta.1/' + name)
+            container.write(path, 'C_Scan_Studio_v3.4.0-beta.2/' + name)
     outer_hash = vendor.hash_file(archive_output)
     detached = archive_output.with_name(archive_output.name + '.sha256.txt')
     detached.write_text(outer_hash + '  ' + archive_output.name + '\n', encoding='ascii')

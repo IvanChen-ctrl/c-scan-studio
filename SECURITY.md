@@ -54,3 +54,9 @@ sha256-verified CLI managed by the official Everything downloader is used.
 
 This prerelease's SHA-256 will differ from v3.3.1. VirusTotal detection results
 for v3.3.1 must not be attached as a scan certification for this version.
+
+## v3.4 beta2 privacy and preview limits
+
+The `/api/preview-files` endpoint shows up to 100 read-only snapshot paths per request, but only for the currently selected categories, with a valid single-use cleanup ticket and authenticated loopback origin. This is not arbitrary disk browsing. Files are not re-opened or uploaded. An expired, canceled or consumed ticket cannot be used to list files. The browser defaults to 50 rows per page.
+
+The after-clean disk-space delta is a **net observed change** (background disk activity can increase or decrease it) and is not a verified measure of the cleaner's exclusive effect. The source has not undergone real Windows-drive deletion testing.
