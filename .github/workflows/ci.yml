@@ -41,6 +41,7 @@ jobs:
           python -m unittest discover -s tests_v352
           python -m unittest discover -s tests_v36
           python -m unittest discover -s tests_v362
+          python -m unittest discover -s tests_v363
       - name: Execute browser interaction regressions (mocked local APIs)
         run: node tests_v362/browser_behavior.cjs
       - name: Build and check source-only release
