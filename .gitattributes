@@ -1,0 +1,8 @@
+# Canonical checkout bytes on Linux and Windows (reproducible SHA-256 ZIPs).
+# Python, docs, JS and GitHub workflows must never depend on core.autocrlf.
+* text=auto eol=lf
+# Command Prompt launchers intentionally keep Windows-native CRLF on EVERY OS.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Images and other binary assets are never subjected to EOL conversion.
+*.png binary
