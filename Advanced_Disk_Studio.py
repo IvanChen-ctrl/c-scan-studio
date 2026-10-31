@@ -754,7 +754,7 @@ class Analyzer:
 
     def stop(self):
         with self.lock:
-            if self.phase not in ("scanning", "large", "cleaning", "setup"):
+            if self.phase not in ("scanning", "large", "cleaning", "setup", "inventory"):
                 return False, "当前没有正在执行的任务。"
             self.cancel.set()
             self.message = "正在停止：会在当前文件或查询结束后退出。"
