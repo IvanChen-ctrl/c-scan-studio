@@ -31,3 +31,7 @@ Windows 和 Ubuntu 的同一次 CI 均重现上述三项失败、一项异常；
 早期 Beta 的 Windows 与 Ubuntu runner 曾从同一提交产生不同 ZIP 哈希，原因是平台依赖的 Git 文本换行符策略。以前各自单独通过 CRC/manifest 的检查无法识别这种非可重复性。
 
 已加入 `.gitattributes` 明确统一 LF 文本、Windows BAT/CMD CRLF，在两种操作系统中检出相同字节；增加独立 CI 作业比较 Windows/Ubuntu 产出 ZIP 的 SHA-256。必须两方相同才通过。此检查不替代第三方恶意软件扫描。
+
+## 红灯阶段进一步修复
+
+首次加入跨平台 ZIP 摘要上传时，GitHub `actions/upload-artifact` 不接受 `../out` 相对路径；修复为复制摘要到工作区内的 `artifact_digests/` 后上传。Windows 端又出现间歇性 WinError 10053：服务器在拒绝跨域 POST 后关闭尚未读完请求体的 socket；改为限时有界丢弃读，新增 56 次并发未授权请求的回归断言。此举不改变无效 Origin/Token 的 403 安全边界。
