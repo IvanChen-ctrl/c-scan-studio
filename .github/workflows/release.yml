@@ -14,7 +14,7 @@ permissions:
   attestations: write
   artifact-metadata: write
 concurrency:
-  group: cscan-v3.6.0-beta.2-release
+  group: cscan-v3.6.0-beta.3-release
   cancel-in-progress: false
 jobs:
   publish:
@@ -26,8 +26,8 @@ jobs:
         github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     env:
-      RELEASE_DIR: /tmp/cscan-v360b2-release
-      EXPECTED_TAG: v3.6.0-beta.2
+      RELEASE_DIR: /tmp/cscan-v360b3-release
+      EXPECTED_TAG: v3.6.0-beta.3
     steps:
       - name: Require CI and CodeQL success for EXACT main commit
         id: gate
@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33 tests_v34 tests_v35 tests_v352 tests_v36 tests_v362; do
+          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33 tests_v34 tests_v35 tests_v352 tests_v36 tests_v362 tests_v363; do
             python -m unittest discover -s "$suite"
           done
       - name: Re-run UI behavior regression before beta publication
@@ -102,12 +102,12 @@ jobs:
             echo "Main changed; refusing to attach artifacts to another source commit."
             exit 1
           fi
-          (cd "$RELEASE_DIR" && sha256sum -c C_Scan_Studio_v3.6.0-beta.2_Source.zip.sha256.txt)
+          (cd "$RELEASE_DIR" && sha256sum -c C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt)
       - name: Create GitHub build attestation
         if: steps.gate.outputs.ready == 'true'
         uses: actions/attest@v4
         with:
-          subject-path: /tmp/cscan-v360b2-release/C_Scan_Studio_v3.6.0-beta.2_Source.zip
+          subject-path: /tmp/cscan-v360b3-release/C_Scan_Studio_v3.6.0-beta.3_Source.zip
       - name: Publish separate beta release with its OWN SHA-256
         if: steps.gate.outputs.ready == 'true'
         env:
@@ -120,8 +120,8 @@ jobs:
             exit 0
           fi
           gh release create "$EXPECTED_TAG" \
-            "$RELEASE_DIR/C_Scan_Studio_v3.6.0-beta.2_Source.zip" \
-            "$RELEASE_DIR/C_Scan_Studio_v3.6.0-beta.2_Source.zip.sha256.txt" \
+            "$RELEASE_DIR/C_Scan_Studio_v3.6.0-beta.3_Source.zip" \
+            "$RELEASE_DIR/C_Scan_Studio_v3.6.0-beta.3_Source.zip.sha256.txt" \
             --prerelease \
-            --title 'C-Scan Studio v3.6 beta 2 - Quick Navigation and Safe Selection' \
-            --notes-file docs/RELEASE_NOTES_v3.6.0-beta.2.md
+            --title 'C-Scan Studio v3.6 beta 3 - Stress-Hardened Multi-Drive Classification' \
+            --notes-file docs/RELEASE_NOTES_v3.6.0-beta.3.md
