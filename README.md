@@ -1,4 +1,4 @@
-# C-Scan Studio v3.5.0-beta.1 / C 盘安全清理与多磁盘查重分类
+# C-Scan Studio v3.5.2-beta.1 / C 盘安全清理与多磁盘查重分类
 
 **Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
@@ -7,15 +7,15 @@
 
 ## 1. 开始使用
 
-1. 下载此版本的 `C_Scan_Studio_v3.5.0-beta.1_Source.zip`（本轮独立源码 ZIP；GitHub 预发布通过 CI 后另行提供正式附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
-2. 解压到例如 `D:\C_Scan_Studio_v3.5.0-beta.1`，不要直接在 ZIP 内运行。
+1. 下载此版本的 `C_Scan_Studio_v3.5.2-beta.1_Source.zip`（本轮独立源码 ZIP；GitHub 预发布通过 CI 后另行提供正式附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
+2. 解压到例如 `D:\C_Scan_Studio_v3.5.2-beta.1`，不要直接在 ZIP 内运行。
 3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
 4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
 5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.5.0-beta.1 图形界面入口 | 说明 |
+| 操作 | v3.5.2-beta.1 图形界面入口 | 说明 |
 | --- | --- | --- |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
@@ -45,7 +45,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.5.0-beta.1_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.5.2-beta.1_Source.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**
@@ -117,3 +117,15 @@ Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
 - 操作说明见 [多盘查重简明手册](docs/MULTIDRIVE_DUPLICATES_GUIDE_CN.md)；更新日志见 [v3.5 发布说明](docs/RELEASE_NOTES_v3.5.md)。
 
 **验收状态：** 目前只通过隔离环境模拟扫描与静态浏览器布局验证，尚无用户 Windows 实机 NTFS/USB 长时扫描及本版本独立 VirusTotal 报告。向朋友推荐时请优先使用验证完整的 v3.3.1 稳定版。
+
+## v3.5.2-beta.1 — 分级建议与多盘分类树
+
+- 主页按目标显示**优先清理、人工确认、只读复核、受保护文件**。
+- 分级建议页按**目标 → 阶段 → 建议事项**展开，便于分步操作。
+- 其他盘分类按**内容族群（按扩展名） → 文件类别 → 子类 → 盘符 → 文件清单**浏览。
+- 所有类别层级为本地文件扩展名规则分类，不进行内容理解，也不向云端上传文件。
+- 分类页只返回扫描结果里的聚合统计；单个路径只通过原有带令牌的本地分页接口读取。
+- 多盘模块不提供删除、移动、重命名或批量处理功能。
+- 详情见 [v3.5.2 发布说明](docs/RELEASE_NOTES_v3.5.2.md)。
+
+[树状分类与分级建议简明手册](docs/TREE_GUIDE_CN.md)。

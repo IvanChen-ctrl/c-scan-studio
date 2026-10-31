@@ -42,7 +42,7 @@ import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 
-VERSION = "3.5.0-beta.1"
+VERSION = "3.5.2-beta.1"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -457,22 +457,45 @@ class Analyzer:
             self._record(self.message)
         return self._start('inventory', '正在对已选择磁盘做只读文件分类和查重...', work)
 
-    def classified_files_page(self, category, offset=0, limit=50):
-        # No arbitrary paths, filters, glob patterns or file reads from client.
+    def classified_files_page(self, category, offset=0, limit=50, subtype=None, drive=None):
+        # All filters MUST be selected from this session's scanned hierarchy.
+        # Never accept a filesystem path, glob, file handle or operation from UI.
         if (not isinstance(category, str) or len(category) > 32 or
                 type(offset) is not int or type(limit) is not int or
-                offset < 0 or not 1 <= limit <= 100):
+                offset < 0 or not 1 <= limit <= 100 or
+                (subtype is not None and (not isinstance(subtype, str) or len(subtype) > 48)) or
+                (drive is not None and (not isinstance(drive, str) or len(drive) > 260))):
             return False, '分类分页参数无效。', None
         with self.lock:
             allowed_categories = {x['id'] for x in self.inventory.get('categories', [])}
             if category not in allowed_categories:
                 return False, '请先对其他磁盘执行只读扫描，再选择已经识别的类别。', None
-            all_items = [x for x in self.inventory.get('classified_files', []) if x['category'] == category]
+            hierarchy = self.inventory.get('hierarchy', [])
+            cat_rows = [c for family in hierarchy for c in family.get('categories', [])
+                        if c['id'] == category]
+            if subtype is not None or drive is not None:
+                # Filters are safe only when they match the actual scanned
+                # hierarchy AND category. Missing hierarchy: do not guess.
+                if not cat_rows:
+                    return False, '未发现对应的已扫描分类层级，请刷新扫描。', None
+                subtypes = [v for c in cat_rows for v in c.get('subtypes', [])]
+                valid_subtypes = {v['id'] for v in subtypes}
+                if subtype is not None and subtype not in valid_subtypes:
+                    return False, '子类不属于当前扫描快照。', None
+                drives = {v['id'] for v in subtypes if subtype is None or v['id'] == subtype
+                          for v in v.get('drives', [])}
+                if drive is not None and drive not in drives:
+                    return False, '盘符不属于当前类别/子类的扫描快照。', None
+            all_items = [x for x in self.inventory.get('classified_files', [])
+                         if x['category'] == category
+                         and (subtype is None or x.get('subtype') == subtype)
+                         and (drive is None or x.get('volume') == drive)]
             if offset > len(all_items):
                 return False, '分页超出扫描清单。', None
             items = all_items[offset:offset + limit]
             return True, '只读展示已扫描文件的分类快照；没有打开或移动文件。', {
-                'category': category, 'total': len(all_items), 'offset': offset,
+                'category': category, 'subtype': subtype, 'drive': drive,
+                'total': len(all_items), 'offset': offset,
                 'limit': limit, 'files': items,
                 'next_offset': offset + len(items) if offset + len(items) < len(all_items) else None,
                 'complete': bool(self.inventory.get('inventory_complete')),
@@ -1134,7 +1157,8 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, msg = True, "已重新读取本机可选盘符。"
         elif parsed.path == "/api/inspect-files":
             ok, msg, page = manager.classified_files_page(
-                body.get('category'), body.get('offset', 0), body.get('limit', 50))
+                body.get('category'), body.get('offset', 0), body.get('limit', 50),
+                body.get('subtype'), body.get('drive'))
             return self._answer(200 if ok else 409, {
                 'ok': ok, 'message': msg, 'page': page if ok else None})
         elif parsed.path == "/api/everything":
@@ -1184,7 +1208,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.5.0-beta.1 - Windows 本地多磁盘智能分析器")
+    print("C-Scan Studio v3.5.2-beta.1 - Windows 本地多磁盘智能分析器")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")

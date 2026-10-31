@@ -53,6 +53,113 @@ _SUFFIX_TO_CAT = {suffix: (cat, label) for cat, label, suffixes in CATEGORIES fo
 CAT_LABELS = {cat: label for cat, label, _ in CATEGORIES} | {'other': '其他/未知'}
 HARD_PROTECT = frozenset({'models', 'virtual_disks', 'code', 'databases'})
 
+# Explainable metadata-only hierarchy: family -> type -> subtype -> scanned volume.
+# These names describe extension groups, NOT inferred file contents. The tree
+# stores aggregate numbers only; complete paths remain behind authenticated,
+# bounded pagination. No new file-reading or deletion capability is added.
+CATEGORY_FAMILIES = (
+    ('media', '影像与创意素材', ('images', 'videos', 'audio')),
+    ('office', '文档与归档', ('documents', 'archives')),
+    ('development', '工程、模型与数据', ('code', 'models', 'databases')),
+    ('system', '软件与磁盘映像', ('installers', 'virtual_disks')),
+    ('other', '未识别文件', ('other',)),
+)
+CATEGORY_FAMILY_LOOKUP = {cat: (family, label)
+                          for family, label, cats in CATEGORY_FAMILIES for cat in cats}
+SUBTYPE_RULES = {
+    'images': (
+        ('raster', '常见图片格式', '.jpg .jpeg .png .webp .gif .bmp .tiff .tif .heic'),
+        ('design', '设计与矢量格式', '.psd .ai .svg'),
+        ('camera', '相机原始格式', '.raw .cr2 .dng'),
+    ),
+    'videos': (('video', '常见视频格式', '.mp4 .mov .mkv .avi .wmv .flv .webm .m4v .mts'),),
+    'audio': (
+        ('lossless', '常见无损音频格式', '.wav .flac .aiff'),
+        ('compressed', '常见压缩音频格式', '.mp3 .m4a .aac .ogg .opus'),
+        ('other_audio', '其他音频格式', '.mid'),
+    ),
+    'documents': (
+        ('office', 'Office 与办公文档', '.doc .docx .ppt .pptx .xls .xlsx .rtf .odt'),
+        ('pdf', 'PDF 格式', '.pdf'),
+        ('text', '文字与数据交换格式', '.txt .md .csv .epub'),
+    ),
+    'archives': (('compressed', '压缩包格式', '.zip .7z .rar .tar .gz .bz2 .xz .zst .tgz'),),
+    'installers': (
+        ('applications', '安装包与程序', '.exe .msi .msix .apk .aab .deb .rpm .appx'),
+        ('libraries', '动态库与软件包', '.dll .sys .whl'),
+        ('optical', '光盘映像', '.iso'),
+    ),
+    'models': (('weights', 'AI 模型与推理权重', '.safetensors .gguf .ckpt .pth .pt .onnx .tflite .pb .engine'),),
+    'virtual_disks': (('volumes', '虚拟磁盘与系统映像', '.vhdx .vhd .vmdk .vdi .qcow2 .img .wim .esd'),),
+    'code': (
+        ('source', '程序源码', '.py .js .ts .jsx .tsx .cs .cpp .c .h .java .rs .go .sh .ps1 .bat .cmd'),
+        ('project', '项目与配置数据', '.json .yaml .yml .toml .unity .prefab .fbx'),
+        ('notebook', '交互式笔记本', '.ipynb'),
+    ),
+    'databases': (
+        ('database', '数据库文件', '.db .sqlite .sqlite3 .mdb .accdb'),
+        ('backup', '数据库备份与邮件档案', '.bak .sql .pst .ost'),
+    ),
+}
+_SUBTYPE_LOOKUP = {}
+for _cat, _groups in SUBTYPE_RULES.items():
+    for _id, _label, _extensions in _groups:
+        for _ext in _extensions.split():
+            _SUBTYPE_LOOKUP[(_cat, _ext)] = (_id, _label)
+
+
+def subtype_of(category, path):
+    """Return stable id+label, based exclusively on extension and category."""
+    if category == 'other':
+        return 'unclassified', '无法判定的扩展名'
+    return _SUBTYPE_LOOKUP.get((category, Path(path).suffix.casefold()),
+                               ('misc', '该类其他扩展名'))
+
+
+def classification_hierarchy(records):
+    """Aggregate scanned metadata; never send every file path in public state."""
+    families = {}
+    for rec in records:
+        cat = rec['category']
+        family_id, family_label = CATEGORY_FAMILY_LOOKUP.get(cat, ('other', '未识别文件'))
+        family = families.setdefault(family_id, {
+            'id': family_id, 'label': family_label, 'count': 0, 'bytes': 0,
+            'categories': {},
+        })
+        size = max(0, int(rec['size']))
+        family['count'] += 1
+        family['bytes'] += size
+        cats = family['categories']
+        row = cats.setdefault(cat, {'id': cat, 'label': CAT_LABELS[cat],
+                                    'count': 0, 'bytes': 0, 'subtypes': {}})
+        row['count'] += 1
+        row['bytes'] += size
+        subtype_id = rec.get('subtype') or subtype_of(cat, rec['path'])[0]
+        subtype_label = rec.get('subtype_label') or subtype_of(cat, rec['path'])[1]
+        subtype = row['subtypes'].setdefault(subtype_id, {
+            'id': subtype_id, 'label': subtype_label, 'count': 0, 'bytes': 0,
+            'drives': {},
+        })
+        subtype['count'] += 1
+        subtype['bytes'] += size
+        volume = rec['volume']
+        drive = subtype['drives'].setdefault(volume, {'id': volume, 'count': 0, 'bytes': 0})
+        drive['count'] += 1
+        drive['bytes'] += size
+    output = []
+    for fid, _, _ in CATEGORY_FAMILIES:
+        if fid not in families:
+            continue
+        family = families[fid]
+        family['categories'] = sorted(({
+            **cat,
+            'subtypes': sorted(({
+                **sub, 'drives': sorted(sub['drives'].values(), key=lambda x: (-x['bytes'], x['id']))
+            } for sub in cat['subtypes'].values()), key=lambda x: (-x['bytes'], x['label']))
+        } for cat in family['categories'].values()), key=lambda x: (-x['bytes'], x['label']))
+        output.append(family)
+    return output
+
 
 def available_drives():
     """Windows only; fixed/removable volumes D:..Z:; never C: or network/optical."""
@@ -243,10 +350,12 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
                             if info.st_nlink > 1 and info.st_ino:
                                 inode_paths.add(identity)
                             label = classification(candidate.path)
+                            subtype_id, subtype_label = subtype_of(label['id'], candidate.path)
                             item = {'path': str(candidate.path), 'size': max(0, int(info.st_size)),
                                     'mtime_ns': int(info.st_mtime_ns), 'identity': (
                                         int(info.st_size), int(info.st_mtime_ns), int(info.st_dev), int(info.st_ino)),
                                     'category': label['id'], 'volume': volume,
+                                    'subtype': subtype_id, 'subtype_label': subtype_label,
                                     'classification': label}
                             files.append(item)
                             bucket = class_stats[label['id']]
@@ -361,10 +470,12 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
         'duplicate_files': sum(g['count'] - 1 for g in groups),
         'theoretical_savings': sum(g['theoretical_bytes'] for g in groups),
         'categories': category_rows,
+        'hierarchy': classification_hierarchy(files),
         # Complete read-only file catalog is served ONLY by authenticated,
         # bounded pagination or an explicit locally downloaded report.
         'classified_files': [{'path': item['path'], 'size': item['size'],
                               'category': item['category'],
+                              'subtype': item['subtype'], 'volume': item['volume'],
                               'mtime': datetime.fromtimestamp(item['mtime_ns'] / 1_000_000_000).strftime('%Y-%m-%d'),
                               'confidence': item['classification']['confidence'],
                               'reason': item['classification']['reason']}
@@ -381,5 +492,5 @@ def inspect_roots(roots, stop, *, min_duplicate_bytes=64*1024,
 def empty_report():
     return {'roots': [], 'complete': False, 'inventory_complete': False, 'hash_complete': False,
             'files_seen': 0, 'duplicate_groups': [], 'total_duplicate_groups': 0,
-            'duplicate_files': 0, 'theoretical_savings': 0, 'categories': [], 'classified_files': [],
+            'duplicate_files': 0, 'theoretical_savings': 0, 'categories': [], 'hierarchy': [], 'classified_files': [],
             'warning': '尚未开始：必须主动选择本机 D: 至 Z: 磁盘，扫描只读。'}

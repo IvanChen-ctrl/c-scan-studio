@@ -1,4 +1,4 @@
-name: Publish verified v3.5.0 beta source
+name: Publish verified v3.5.2 beta source
 # This workflow does not modify the independent v3.3.1 stable release.
 # A release is only permitted when the exact main commit has both CI and
 # CodeQL successes, and main has not moved before publication.
@@ -14,7 +14,7 @@ permissions:
   attestations: write
   artifact-metadata: write
 concurrency:
-  group: cscan-v3.5.0-beta.1-release
+  group: cscan-v3.5.2-beta.1-release
   cancel-in-progress: false
 jobs:
   publish:
@@ -26,8 +26,8 @@ jobs:
         github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     env:
-      RELEASE_DIR: /tmp/cscan-v35-release
-      EXPECTED_TAG: v3.5.0-beta.1
+      RELEASE_DIR: /tmp/cscan-v352-release
+      EXPECTED_TAG: v3.5.2-beta.1
     steps:
       - name: Require CI and CodeQL success for EXACT main commit
         id: gate
@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33 tests_v34 tests_v35; do
+          for suite in tests tests_v3 tests_v31 tests_v32 tests_v33 tests_v34 tests_v35 tests_v352; do
             python -m unittest discover -s "$suite"
           done
       - name: Build deterministic source-only beta ZIP OUTSIDE repo
@@ -95,12 +95,12 @@ jobs:
             echo "Main changed; refusing to attach artifacts to another source commit."
             exit 1
           fi
-          (cd "$RELEASE_DIR" && sha256sum -c C_Scan_Studio_v3.5.0-beta.1_Source.zip.sha256.txt)
+          (cd "$RELEASE_DIR" && sha256sum -c C_Scan_Studio_v3.5.2-beta.1_Source.zip.sha256.txt)
       - name: Create GitHub build attestation
         if: steps.gate.outputs.ready == 'true'
         uses: actions/attest@v4
         with:
-          subject-path: /tmp/cscan-v35-release/C_Scan_Studio_v3.5.0-beta.1_Source.zip
+          subject-path: /tmp/cscan-v352-release/C_Scan_Studio_v3.5.2-beta.1_Source.zip
       - name: Publish separate beta release with its OWN SHA-256
         if: steps.gate.outputs.ready == 'true'
         env:
@@ -113,8 +113,8 @@ jobs:
             exit 0
           fi
           gh release create "$EXPECTED_TAG" \
-            "$RELEASE_DIR/C_Scan_Studio_v3.5.0-beta.1_Source.zip" \
-            "$RELEASE_DIR/C_Scan_Studio_v3.5.0-beta.1_Source.zip.sha256.txt" \
+            "$RELEASE_DIR/C_Scan_Studio_v3.5.2-beta.1_Source.zip" \
+            "$RELEASE_DIR/C_Scan_Studio_v3.5.2-beta.1_Source.zip.sha256.txt" \
             --prerelease \
-            --title 'C-Scan Studio v3.5.0 beta 1 — Multi-Drive Duplicate Check and Classification' \
-            --notes-file docs/RELEASE_NOTES_v3.5.md
+            --title 'C-Scan Studio v3.5.2 beta 1 — Ergonomic Tree Guidance and Hierarchical File Classification' \
+            --notes-file docs/RELEASE_NOTES_v3.5.2.md
