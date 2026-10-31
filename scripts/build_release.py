@@ -12,7 +12,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = '3.6.0-beta.3'
+VERSION = '3.6.0-beta.4'
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
