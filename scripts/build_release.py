@@ -33,7 +33,7 @@ EXCLUDES = frozenset({
     'Everything', 'ES', 'docs/historical', 'logs', 'Reports', 'dist',
 })
 ALLOWED_SUFFIX = frozenset({'.py', '.html', '.md', '.txt', '.cmd', '.bat',
-                            '.yml', '.yaml', '.json', '.ini', '.csv', '.png', '.ps1', '.js'})
+                            '.yml', '.yaml', '.json', '.ini', '.csv', '.png', '.ps1', '.js', '.cjs'})
 DANGEROUS_SUFFIX = frozenset({'.exe', '.dll', '.msi', '.zip', '.whl', '.pfx',
                               '.pem', '.key', '.env', '.conda', '.p12'})
 DATE = (2026, 10, 31, 0, 0, 0)
