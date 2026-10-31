@@ -761,7 +761,7 @@ class Analyzer:
             self._record("用户请求停止当前任务。")
             return True, "已请求停止"
 
-    def _validated_jobs(self, target_ids):
+    def _validated_jobs(self, target_ids, *, copy_snapshots=True):
         """Validate an entire selected allowlisted scan snapshot, under lock.
 
         No arbitrary paths from the browser are accepted. Returns (jobs, error).
@@ -787,7 +787,11 @@ class Analyzer:
             shots = self.snapshots.get(key, [])
             if len(shots) != row["count"] or not shots:
                 return None, "文件清单与扫描计数不一致，请重新扫描。"
-            jobs.append((key, self.targets[key], list(shots), row["age_days"]))
+            # Caller holds the analyzer lock. Preview paging borrows the
+            # immutable scan list for O(page-size) reads, while cleaning and
+            # ticket creation still capture their own independent copies.
+            jobs.append((key, self.targets[key],
+                         list(shots) if copy_snapshots else shots, row["age_days"]))
         return jobs, None
 
     def preview_clean(self, target_ids):
@@ -815,7 +819,14 @@ class Analyzer:
                     if len(samples) < 12:
                         samples.append(shot.path)
             ticket = secrets.token_urlsafe(24)
+            # Ticket binds to the entire file list, not merely the category
+            # IDs/counts. Frozen Snapshot entries cannot be changed by a
+            # later same-count list edit or stale browser tab.
+            frozen_jobs = tuple(
+                (key, target, tuple(shots), days)
+                for key, target, shots, days in jobs)
             self.cleanup_preview = {"ticket": ticket, "ids": tuple(target_ids),
+                                    "jobs": frozen_jobs,
                                     "expires": time.monotonic() + CLEAN_PREVIEW_TTL}
             self._record(f"用户请求只读删除预览：{len(jobs)} 类，共 {sum(len(j[2]) for j in jobs)} 个缓存文件。")
             return True, "已生成预览。不会删除文件。", {
@@ -845,10 +856,20 @@ class Analyzer:
             if (type(offset) is not int or type(limit) is not int or
                     offset < 0 or not 1 <= limit <= 100):
                 return False, "分页参数无效：offset 必须非负，limit 不得超过 100。", None
-            jobs, error = self._validated_jobs(list(pending["ids"]))
+            # Never copy all N snapshots for each page. Validate the current
+            # allowlist/counts without copying, then page the frozen ticket.
+            live_jobs, error = self._validated_jobs(
+                list(pending["ids"]), copy_snapshots=False)
             if error:
                 self.cleanup_preview = None
                 return False, error, None
+            jobs = pending["jobs"]
+            if (len(live_jobs) != len(jobs) or any(
+                    current[0] != frozen[0] or current[1] != frozen[1] or
+                    current[3] != frozen[3] or len(current[2]) != len(frozen[2])
+                    for current, frozen in zip(live_jobs, jobs))):
+                self.cleanup_preview = None
+                return False, "预览后扫描快照已变更，请重新扫描并预览。", None
             total = sum(len(shots) for _id, _target, shots, _age in jobs)
             if offset > total:
                 return False, "分页位置超出本次预览范围。", None
@@ -863,8 +884,14 @@ class Analyzer:
                     break
                 lo = max(0, offset - position)
                 hi = min(len(shots), offset + limit - position)
+                live_shots = live_jobs[[j[0] for j in jobs].index(key)][2]
                 for index in range(lo, hi):
                     shot = shots[index]
+                    if live_shots[index] != shot:
+                        # A same-count edit must never make a newly inserted
+                        # path visible under an older preview ticket.
+                        self.cleanup_preview = None
+                        return False, "预览文件已变化；旧凭证已失效。", None
                     try:
                         modified = datetime.fromtimestamp(shot.mtime_ns / 1_000_000_000).strftime("%Y-%m-%d")
                     except (OverflowError, ValueError, OSError):
@@ -908,6 +935,20 @@ class Analyzer:
                     tuple(target_ids) != pending["ids"] or
                     time.monotonic() >= pending["expires"]):
                 return False, "请先预览本轮准确的清理清单；预览已过期或项目变化时必须重新预览。"
+            # The final authorization must bind to every immutable snapshot,
+            # including the file path, size and original mtime_ns. A list
+            # mutated in-place with the same number of entries is NOT safe.
+            frozen_jobs = pending["jobs"]
+            if (len(jobs) != len(frozen_jobs) or any(
+                    key != saved_key or target != saved_target or
+                    days != saved_days or len(shots) != len(saved_shots) or
+                    any(current != saved for current, saved
+                        in zip(shots, saved_shots))
+                    for (key, target, shots, days),
+                        (saved_key, saved_target, saved_shots, saved_days)
+                    in zip(jobs, frozen_jobs))):
+                self.cleanup_preview = None
+                return False, "本轮预览后的文件清单已变更，请重新扫描；没有执行清理。"
             # Single-use even when the worker later errors or is cancelled.
             self.cleanup_preview = None
             self.cancel.clear()
