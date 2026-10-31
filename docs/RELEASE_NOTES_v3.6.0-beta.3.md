@@ -18,3 +18,9 @@
 - 模拟文件在 CI 临时目录生成和销毁，不触及用户真实磁盘。
 - Windows 和 Ubuntu CI、CodeQL 对同一 GitHub 提交完成后才能发布 ZIP 和 SHA-256。
 - **未验证实际 Windows 真实文件删除、USB 长时连接/断线或本版本 VirusTotal 结果**。
+
+## 跨平台可重复构建修复
+
+在新加的“构建前清单验证”中发现 Windows 的 Git 检出把大量文本文件转换为 CRLF，而 Ubuntu 保留 LF，使同一源码生成不同的 ZIP 和 SHA-256。
+
+新增仓库级 `.gitattributes`：绝大多数文本用 LF、Windows 启动 BAT/CMD 在所有平台统一为 CRLF，PNG 保持二进制。发布包同时包含该文件，SHA-256 清单覆盖它。CI 新增跨平台 ZIP 摘要对比作业，**Windows 和 Ubuntu 完全一致才算 CI 成功**。
