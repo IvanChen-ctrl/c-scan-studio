@@ -42,7 +42,7 @@ import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 
-VERSION = "3.6.0-beta.3"
+VERSION = "3.6.0-beta.4"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
