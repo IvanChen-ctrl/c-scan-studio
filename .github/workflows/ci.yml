@@ -60,7 +60,7 @@ jobs:
           mkdir -p artifact_digests
           cp ../out/C_Scan_Studio_v3.6.0-beta.4_Source.zip.sha256.txt artifact_digests/
       - name: Upload source ZIP digest for cross-platform comparison
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: source-digest-${{ matrix.os }}
           path: artifact_digests/C_Scan_Studio_v3.6.0-beta.4_Source.zip.sha256.txt
