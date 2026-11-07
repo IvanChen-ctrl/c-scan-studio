@@ -70,7 +70,7 @@ jobs:
       - name: Verify committed source manifest before any generated files
         if: steps.gate.outputs.ready == 'true'
         run: python scripts/verify_source_manifest.py
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.gate.outputs.ready == 'true'
         with:
           node-version: '22'
