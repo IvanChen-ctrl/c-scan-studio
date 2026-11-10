@@ -1,10 +1,23 @@
-# C-Scan Studio v3.6.0-beta.4 / Windows 安全空间管理与多盘只读分类
+# C-Scan Studio v3.7.0-beta.1 / Unity 专项缓存与 Windows 空间管理
 
-**Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
+**Windows 10 / 11** · 便携 EXE / 源码 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
 > 这是磁盘扫描与缓存清理工具，不是杀毒软件，也没有“官方无毒认证”。
 > 默认只有只读扫描；清理需选中白名单项目、预览提示并键入 `DELETE`。
 
+
+## v3.7.0-beta.1 · Unity 放在 D 盘，C 盘仍被缓存占用
+
+新增 **Unity 专项**：一键只读诊断 → 核对所在盘和占用 → 手动选择白名单缓存 → 完整文件预览 → `DELETE` 确认。
+
+- 分别识别 Unity 6 / 旧版 UPM 包缓存、GI 光照缓存、精确的旧 Editor/UPM 日志；普通快扫的耗时预算不受专项缓存影响。
+- **默认保留离线包缓存**。需要清理 UPM 时，取消该选项并重新专项扫描；服务器也会验证此选项。
+- Bee、Asset Store、Hub 日志、Gradle 和自定义缓存路径只读显示；未确认的路径、权限错误、链接和超时均明确标注。
+- 读取当前进程的缓存环境变量和 `.upmconfig.toml` 根级 `cacheRoot`，不导出 registry 密钥等其他配置。不会自动修改环境变量、搬走旧缓存或设置目录联接。
+- 编辑器/Hub/Package Manager/Bee 等相关进程仍运行或进程检查失败时，缓存清理不可执行。Unity 源项目、许可证、SDK/NDK/OpenJDK 受保护。
+- Windows Runner 增加独立便携 EXE 构建及真实 HTTP 启动自检。EXE 采用文件夹便携包，解压整个包后启动，避免每次在 C 盘临时目录解压运行环境。
+
+使用和迁移位置的逐步说明见 [Unity 专项使用指南](docs/UNITY_CLEANUP_GUIDE_CN.md)；范围和验证边界见 [本版说明](docs/RELEASE_NOTES_v3.7.0-beta.1.md)。以下 v3.6 部分保留为历史记录，其测试数字不代表本版。
 
 ## v3.6.0-beta.4 · 清理预览快照与目录竞态压力回归
 
@@ -56,16 +69,17 @@
 
 ## 1. 开始使用
 
-1. 下载此版本的 `C_Scan_Studio_v3.6.0-beta.4_Source.zip`（独立版本；通过 CI 后 GitHub 会生成自己的发行附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
-2. 解压到例如 `D:\C_Scan_Studio_v3.6.0-beta.4`，不要直接在 ZIP 内运行。
-3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
-4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
-5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
+1. 普通使用选择 `C_Scan_Studio_v3.7.0-beta.1_Windows_x64.zip`，开发和审阅源码选择 `C_Scan_Studio_v3.7.0-beta.1_Source.zip`。Windows 构建通过后，便携包位于对应 Actions 运行的附件中；正式发行需另行发布。使用与实际下载文件对应的 SHA-256 核对，**不能套用旧版的文件指纹或 VirusTotal 结论**。
+2. 将整个压缩包解压到例如 `D:\C_Scan_Studio_v3.7.0-beta.1`，不要直接在 ZIP 内运行。
+3. **EXE 包双击 `CScanStudio.exe`**，并保留旁边的 `_internal` 文件夹；无需另装 Python。源码包双击 **`00_启动C-Scan智能清理与安全中心.bat`**。
+4. 源码启动器会复用已有 Python/Anaconda/Miniconda；未找到兼容的 Python 时，按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
+5. 浏览器自动打开 **127.0.0.1** 本地控制台。进入 **Unity 专项**，保持默认离线保护，先扫描并检查各项路径与占用。清理需手动选择、预览并确认。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
-| 操作 | v3.6.0-beta.4 图形界面入口 | 说明 |
+| 操作 | 图形界面入口 | 说明 |
 | --- | --- | --- |
+| Unity 缓存诊断与清理 | Unity 专项 | 默认只读；保留离线包 |
 | 扫描 / 详细分析 | 智能缓存清理 | 不删除 |
 | 按项目清理 | 智能缓存清理 → 勾选 → `DELETE` | 不能撤销 |
 | Python 环境检查 | 工具与高级维护 → Python | 不改环境 |
@@ -94,7 +108,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.5.2-beta.1_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.7.0-beta.1_Windows_x64.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**

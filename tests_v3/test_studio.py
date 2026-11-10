@@ -22,7 +22,7 @@ import Advanced_Disk_Studio as app
 
 class RiskTests(unittest.TestCase):
     def test_ver(self):
-        self.assertEqual(app.VERSION, "3.6.0-beta.4")
+        self.assertEqual(app.VERSION, "3.7.0-beta.1")
 
     def test_four_risk_colours(self):
         for value in ("green", "amber", "orange", "red", "gray"):
@@ -76,7 +76,7 @@ class RiskTests(unittest.TestCase):
         self.assertNotIn(app.classify_large_file(r"C:\custom\rare.bin")[0], app.AUTOCLEAN_RISKS)
 
     def test_advisories_not_deletable(self):
-        self.assertEqual(6, len(app.ADVISORIES))
+        self.assertEqual(7, len(app.ADVISORIES))
         self.assertTrue(all(x['risk'] not in app.AUTOCLEAN_RISKS for x in app.ADVISORIES))
 
     def test_json_size_limit(self):
@@ -269,7 +269,7 @@ class SecurityServerTests(unittest.TestCase):
     def test_auth_state_200(self):
         status,data=self.request('GET','/api/state?t='+self.http.session_token)
         self.assertEqual(200,status)
-        self.assertIn(b'"version":"3.6.0-beta.4"',data)
+        self.assertIn(b'"version":"3.7.0-beta.1"',data)
 
     def test_main_page_200(self):
         status,data=self.request('GET','/?t='+self.http.session_token)

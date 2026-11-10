@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>C-Scan Studio v3.6.0-beta.4 | 人体工学结构界面 · 安全可控</title>
+<title>C-Scan Studio v3.7.0-beta.1 | 人体工学结构界面 · 安全可控</title>
 <style>
 :root{font-family:Segoe UI,Microsoft YaHei UI,Microsoft YaHei,Arial,sans-serif;color:#dce6f4;background:#08111f;font-synthesis:none;--surface:#101d30;--surface2:#142338;--line:#273a52;--muted:#91a4bb;--primary:#66b2ff;--green:#41d6a4;--amber:#ffcb60;--orange:#ff9b60;--red:#ff7387;--gray:#b0b7c8;--radius:15px}
 *{box-sizing:border-box}body{margin:0;min-width:360px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}a{color:var(--primary)}.app{display:flex;min-height:100vh}
@@ -348,14 +348,32 @@ body[data-density=compact] .controls{padding-top:9px;padding-bottom:9px}
 .quicknav-item:hover,.quicknav-item:focus-visible{background:#eaf5ff;border-color:#91c4ed;outline:2px solid #78afe4}
 .quicknav-empty{color:#62778c;padding:20px 8px;font-size:13px}
 @media(max-width:700px){.shortcut-key{display:none}.top-actions{width:100%;gap:6px}.selection-review-text{flex:1;min-width:175px}}
+
+/* v3.7 Unity: separate occupied space, reviewable cache and protected data. */
+.unity-hero{padding:23px 24px;background:linear-gradient(125deg,#edf6ff,#f5fbf8);border-bottom:1px solid #dce9ee}
+.unity-hero h2{font-size:24px;line-height:1.35;margin:9px 0;color:#153c5c}.unity-hero p{font-size:13px;line-height:1.85;color:#526f86;max-width:1000px;margin:0}
+.unity-toolbar{padding:18px 22px;display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;border-bottom:1px solid #e0e9f1}
+.unity-toolbar .primary{min-height:46px;font-size:14px}.unity-offline-option{flex:1;min-width:240px;color:#254c6a;font-size:13px}.unity-offline-option label{display:flex;align-items:center;gap:9px;font-weight:750;min-height:28px}.unity-offline-option p{font-size:12px;line-height:1.7;margin:6px 0 0;color:#72869a}
+.unity-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:18px 22px;background:#f9fbfe}
+.unity-metric{padding:15px 16px;border:1px solid #dae6f0;border-radius:12px;background:#fff;min-width:0}.unity-metric span{font-size:12px;color:#667f95;display:block}.unity-metric strong{display:block;margin:9px 0 5px;font-size:25px;color:#174c73;font-variant-numeric:tabular-nums}.unity-metric small{font-size:11px;line-height:1.6;color:#74899c}
+.unity-section{padding:21px 22px;border-top:1px solid #e0eaf2}.unity-section h3{font-size:17px;color:#22465f;margin:0 0 7px}.unity-section-intro{font-size:12px;color:#6c8397;line-height:1.75;margin:0 0 14px}.unity-section-heading{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.unity-cache-grid,.unity-guidance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.unity-cache-card{background:#fff;border:1px solid #d8e5ef;border-radius:13px;padding:16px;min-width:0}.unity-cache-card.is-protected{background:#f8fafc}.unity-cache-card.is-selected{border-color:#2e8bbb;background:#f0f8ff;box-shadow:inset 0 0 0 1px #2e8bbb}
+.unity-cache-title{display:flex;align-items:flex-start;gap:10px;justify-content:space-between;margin-bottom:10px}.unity-cache-title strong{font-size:14px;color:#1b4260;line-height:1.5}.unity-cache-size{font-size:21px;color:#154d79;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}.unity-cache-card .mono{overflow-wrap:anywhere;line-height:1.6;margin:9px 0}.unity-cache-card p{font-size:12px;color:#5e788e;line-height:1.7;margin:7px 0}.unity-cache-meta{display:flex;gap:10px;flex-wrap:wrap;margin:9px 0;font-size:11px;color:#6c8397}.unity-cache-choice{display:flex;align-items:center;gap:9px;padding-top:12px;margin-top:11px;border-top:1px solid #e1ebf3;font-size:12px;color:#286488;font-weight:750;min-height:44px}.unity-cache-choice input{width:18px;height:18px;flex:none}
+.unity-review-bar{margin-top:16px;border:1px solid #cddfee;border-radius:12px;padding:14px 16px;background:#eff7ff;display:flex;align-items:center;justify-content:space-between;gap:13px;flex-wrap:wrap}.unity-review-bar p{margin:0;font-size:12px;color:#305c7e;line-height:1.75}.unity-review-bar .button{min-height:44px}.unity-review-note{display:block;font-size:11px;color:#6a8298;font-weight:400}.unity-review-actions{display:flex;gap:8px;flex-wrap:wrap}
+.unity-volume{border:1px solid #dce7ef;border-radius:12px;overflow:hidden;margin-top:12px}.unity-volume-head{padding:13px 15px;background:#f1f6fb;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:#27526e}.unity-volume-head strong{font-size:16px}.unity-volume-head span{font-size:12px;font-variant-numeric:tabular-nums}.unity-audit-item{padding:14px 15px;border-top:1px solid #e5edf4}.unity-audit-item header{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}.unity-audit-item h4{margin:0;font-size:13px;color:#2b4e68;line-height:1.5}.unity-audit-item .mono{overflow-wrap:anywhere;line-height:1.6;margin:7px 0}.unity-audit-item p{font-size:12px;color:#6a8197;line-height:1.65;margin:5px 0}.unity-audit-size{font-size:14px;font-weight:750;white-space:nowrap;color:#3f6380}.unity-audit-status{font-size:11px;color:#7a8fa1;font-weight:500}.unity-empty{padding:24px 15px;border:1px dashed #cfdfeb;border-radius:11px;background:#f8fbfe;color:#658197;font-size:13px;line-height:1.8;text-align:center}
+.unity-settings{margin-top:16px;border:1px solid #dce6ef;border-radius:12px;overflow:hidden}.unity-settings>summary{cursor:pointer;padding:14px 15px;background:#f5f9fc;font-weight:750;font-size:13px;color:#315773}.unity-setting{padding:12px 15px;border-top:1px solid #e4edf5;font-size:12px;color:#56758e;line-height:1.7;overflow-wrap:anywhere}.unity-setting strong{color:#30516d}.unity-setting code{color:#386d91;font-size:12px}.unity-guidance-card{padding:16px 17px;border:1px solid #dce6ef;border-radius:13px;background:#f8fbff;min-width:0}.unity-guidance-card h4{font-size:14px;color:#2a5271;margin:0 0 8px}.unity-guidance-card p,.unity-guidance-card li{font-size:12px;color:#657f94;line-height:1.8}.unity-guidance-card p{margin:5px 0}.unity-guidance-card ol{padding-left:21px;margin:8px 0}.unity-guidance-card code{font-size:11px;color:#28678c;overflow-wrap:anywhere}.unity-protection{padding:15px 22px;border-top:1px solid #d4e7dd;background:#f0f9f4;color:#4b7562;font-size:12px;line-height:1.85}.unity-policy-changed{color:#9b610d!important}
+@media(max-width:850px){.unity-cache-grid,.unity-guidance-grid{grid-template-columns:1fr}.unity-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.unity-metric:first-child{grid-column:span 2}}
+@media(max-width:540px){.unity-hero,.unity-toolbar,.unity-section{padding:17px 15px}.unity-hero h2{font-size:21px}.unity-metrics{padding:14px;gap:8px}.unity-metric{padding:12px}.unity-metric strong{font-size:22px}.unity-toolbar .primary{width:100%}.unity-cache-size{font-size:18px}.unity-review-actions{width:100%}.unity-review-actions>.primary{flex:1}.unity-audit-item header{flex-direction:column;gap:5px}.unity-volume-head{align-items:flex-start}.unity-protection{padding:14px 15px}}
 </style>
 </head>
 <body data-view="cache">
 <div class="app">
 <aside class="sidebar">
-  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">多磁盘分析 / 人体工学界面 v3.6.0-beta.4</div></div></div>
+  <div class="logo"><span class="logo-mark">C</span><div><div class="logo-name">C-Scan Studio</div><div class="small">多磁盘分析 / Unity 专项 v3.7.0-beta.1</div></div></div>
   <div class="nav-title">分析与清理</div>
   <button class="nav-btn active" id="nav-cache" onclick="switchPage('cache')"><span class="nav-ico">◫</span><span class="nav-text">智能缓存清理</span></button>
+  <button class="nav-btn" id="nav-unity" onclick="switchPage('unity')"><span class="nav-ico">◇</span><span class="nav-text">Unity 专项清理</span></button>
   <button class="nav-btn" id="nav-large" onclick="switchPage('large')"><span class="nav-ico">⌕</span><span class="nav-text">大文件快速搜索</span></button>
   <button class="nav-btn" id="nav-inspect" onclick="switchPage('inspect')"><span class="nav-ico">◷</span><span class="nav-text">其他盘查重与分类</span></button>
   <div class="nav-title">建议与保护</div>
@@ -413,6 +431,22 @@ body[data-density=compact] .controls{padding-top:9px;padding-bottom:9px}
         <div class="footerline"><span id="cache-summary">扫描结果按风险和优先级排序</span><span>快扫不完整的项目禁止清理</span></div>
       </section>
       <section class="surface hide" id="page-large"><div class="surface-head"><span class="page-ribbon">空间排查 · 只读</span><h2>快速定位 C 盘大文件</h2><p>可通过左侧按钮一键下载并校验官方 Everything 与 ES CLI，随后优先读取它的索引；否则限时遍历 C 盘。此页面始终只读，不提供删除按钮。</p></div><div class="controls"><button class="button primary" id="btn-large" onclick="startLarge()">⌕ 开始查找</button><div style="display:flex;align-items:center;gap:6px"><label for="min-mb" class="small">最小文件</label><select class="control-select" id="min-mb"><option value="256">256 MiB</option><option value="512" selected>512 MiB</option><option value="1024">1 GiB</option><option value="2048">2 GiB</option><option value="4096">4 GiB</option></select></div><div class="search"><input id="search-large" placeholder="实时搜索路径、扩展名..." aria-label="筛选大文件"></div></div><div class="info-strip" id="large-source">尚未开始查找。</div><div class="table-scroll"><table><thead><tr><th>优先级</th><th>风险</th><th>文件大小</th><th>日期</th><th>文件名 / 位置</th></tr></thead><tbody id="large-rows"><tr><td class="empty" colspan="5">点击“开始查找”查看大文件</td></tr></tbody></table></div><div class="footerline"><span id="large-summary">文件不会在此页面被删除</span><span>仅展示普通逻辑文件大小，不代表实际可回收空间</span></div></section>
+
+      <section class="surface hide" id="page-unity" aria-label="Unity 专项扫描与分级清理">
+        <div class="unity-hero"><span class="page-ribbon">Unity 专项 · 找出 C 盘增长来源</span><h2>编辑器装在 D 盘，缓存仍可能留在 C 盘</h2><p>Unity 的包下载、光照和构建缓存有各自的位置。本页先核对缓存实际写在哪个盘，再让你选择可清理内容；工程在 D 盘时，删除它的缓存通常不会给 C 盘腾出空间。</p></div>
+        <div class="unity-toolbar"><button type="button" class="button primary" id="btn-unity-scan" onclick="startScan('unity')">扫描 Unity 占用 · 只读</button><div class="unity-offline-option"><label for="unity-preserve-offline"><input type="checkbox" class="checkbox" id="unity-preserve-offline" checked> 保留离线包缓存</label><p id="unity-offline-note">默认保护 UPM 下载包。取消勾选后需重新扫描；清理后可能重新下载，无网络时可能无法还原依赖。</p></div></div>
+        <div class="inspect-status" id="unity-status" role="status" aria-live="polite">尚未执行 Unity 专项扫描。扫描只读取目录与文件属性。</div>
+        <div class="unity-metrics" aria-label="Unity 空间状态"><div class="unity-metric"><span>C 盘当前可用空间</span><strong id="unity-free">—</strong><small>从本机磁盘读取</small></div><div class="unity-metric"><span>C 盘可预览的 Unity 缓存</span><strong id="unity-cleanable">—</strong><small id="unity-cleanable-note">完整扫描、未被占用的允许项</small></div><div class="unity-metric"><span>本轮离线包保护</span><strong id="unity-policy">待扫描</strong><small>设置变化后，重新扫描才会生效</small></div></div>
+        <div class="unity-section"><div class="unity-section-heading"><h3>1 · 选择需要清理的缓存</h3><span class="risk amber">逐项选择 · 先看重建代价</span></div><p class="unity-section-intro">请先正常退出 Unity Editor、Hub 和构建任务。程序仍在运行、进程检测失败或扫描不完整的项目会锁定；所有选项初始均未勾选。</p><div id="unity-cache-cards" class="unity-cache-grid"><div class="unity-empty">扫描完成后，这里会列出 C 盘的包缓存、光照缓存和旧日志。</div></div><div class="unity-review-bar"><p><strong id="unity-selection-review">尚未选择 Unity 缓存</strong><span id="unity-selection-note" class="unity-review-note">下一步仅打开逐文件预览，不会立即删除。</span></p><div class="unity-review-actions"><button type="button" class="button" id="btn-unity-clear" disabled onclick="clearUnitySelection()">清空选择</button><button type="button" class="button primary" id="btn-unity-preview" disabled onclick="cleanSelected('unity')">预览已选 Unity 缓存</button></div></div></div>
+        <div class="unity-section"><h3>2 · 看清缓存在哪个盘</h3><p class="unity-section-intro">下面按盘符列出只读诊断。Bee、Asset Store、Gradle、SDK 和自定义路径需要通过原软件管理；检测到占用不代表可以删除。大小为已读文件的逻辑大小，不等于实际占用或可释放空间。</p><div id="unity-audit-volumes"><div class="unity-empty">等待扫描实际路径。不会把 D 盘占用计入 C 盘可清理空间。</div></div><details class="unity-settings"><summary>查看缓存路径设置与识别依据</summary><div id="unity-settings-content" class="unity-setting">尚未读取设置。</div></details></div>
+        <div class="unity-section"><h3>3 · 减少 C 盘再次增长</h3><p class="unity-section-intro">调整缓存位置后，完全退出并重新打开 Hub 与 Editor，再扫描核对。先确认 D 盘存在且空间充足；修改位置不会自动搬走旧缓存。</p><div class="unity-guidance-grid">
+          <article class="unity-guidance-card"><h4>包缓存与构建缓存</h4><p>在 Windows 的用户环境变量中设置独立目录，例如：</p><p><code>UPM_CACHE_ROOT = D:\UnityCache\UPM</code><br><code>BEE_CACHE_DIRECTORY = D:\UnityCache\Bee</code></p><p>已有分项覆盖或配置文件可能改变实际生效路径，请以扫描结果和对应 Unity 版本设置为准。离线使用前，应先保留可用的包缓存副本。</p></article>
+          <article class="unity-guidance-card"><h4>光照缓存与资源商店</h4><p>在 Unity 的 <strong>Edit → Preferences</strong> 中检查 <strong>GI Cache</strong> 的缓存位置和大小限制，以及 <strong>Package Manager</strong> 中的 Asset Store 缓存位置。</p><p>光照缓存清理后可能需要重新计算；资源商店缓存可能包含难以再次下载的资源，应先核对和备份。</p></article>
+          <article class="unity-guidance-card"><h4>Hub 下载与编辑器安装</h4><p>在 Hub 设置中分别检查编辑器安装位置与下载位置。把编辑器装到 D 盘不会一并迁移包缓存、光照缓存或用户临时目录。</p><p>安装或下载正在进行时，请等待结束。不要清空整个 Temp、UnityHub 或 Unity 用户资料目录。</p></article>
+          <article class="unity-guidance-card"><h4>迁移后再检查旧缓存</h4><ol><li>关闭相关程序，记录原设置并备份需要离线使用的缓存。</li><li>调整路径，启动一个已有工程确认包和构建正常。</li><li>重新运行专项扫描，确认新缓存已写入目标盘。</li><li>再预览 C 盘允许清理的旧缓存，核对后输入 DELETE。</li></ol></article>
+        </div><div id="unity-extra-guidance"></div></div>
+        <div class="unity-protection"><strong>工程和许可证保持保护：</strong>Assets、Packages、ProjectSettings、工程内 Library、Unity 编辑器及 Android SDK/NDK/JDK、许可证和 Hub 项目记录均不作为本页的普通删除目标。导出的本机报告包含实际路径和扫描状态，可用于后续排查。</div>
+      </section>
 
       <section class="surface hide" id="page-inspect" aria-label="其他盘重复文件查找及智能分类">
         <div class="surface-head"><span class="page-ribbon">新增 · 多磁盘只读空间管理</span><h2>其他盘重复文件检验与智能分类</h2>
@@ -522,13 +556,15 @@ body[data-density=compact] .controls{padding-top:9px;padding-bottom:9px}
 <script>
 'use strict';
 const session = new URLSearchParams(location.search).get('t') || '';
-const sections=['cache','large','inspect','advice','tools','security','logs'];
+const sections=['cache','unity','large','inspect','advice','tools','security','logs'];
 let view='cache', latest=null, selected=new Set(), selectedRow=null, selectedKind=null;
 let previewPageOffset=0, previewPageRequest=0;
 let pendingPreview=null, sortBy='priority', sortDir=1, pollRunning=false;
 let connectionHealth='starting', quickNavPreviousFocus=null;
 let selectionRevision=0, previewRequestInFlight=false, cleanSubmitInFlight=false, previewPageValidated=false;
 let lastGuidanceSignature='__first__', lastAdviceSignature='__first__';
+let unityPolicyDirty=false, unityScanRequestInFlight=false, unityPendingPolicy=null;
+let stateRequestRevision=0, lastUnitySignature='__first__';
 const E=id=>document.getElementById(id);
 const fmt=n=>{n=Number(n)||0;if(n<1024)return Math.round(n)+' B';const U=['KiB','MiB','GiB','TiB'];let i=-1;do{n/=1024;i++}while(n>=1024&&i<U.length-1);return n.toFixed(n>=100?0:n>=10?1:2)+' '+U[i]};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -542,6 +578,7 @@ async function post(path,body={}){const res=await fetch(path,{method:'POST',head
 function notify(s){E('task-msg').textContent=s}
 const PAGE_HEADERS={
  cache:['C 盘安全清理驾驶舱','先扫描再评估；没有勾选和预览授权，不能执行清理。'],
+ unity:['Unity 专项 · 缓存诊断与清理','确认 C 盘增长来源，保留离线包，按重建代价选择缓存。'],
  large:['大文件只读定位','Everything 索引或限时扫描，识别位置和大小；本页没有删除操作。'],
  inspect:['其他磁盘 · 层级分类与 SHA-256 查重','按内容族群、类别、子类、磁盘逐层浏览；仅查看，不自动删除。'],
  advice:['目标导向的分级建议中心','先选择目标，再沿阶段树逐步处理；保护和人工确认始终优先。'],
@@ -549,12 +586,12 @@ const PAGE_HEADERS={
  security:['本地验证与第三方安全证据','安全性来自可核验的来源和行为边界，不是单一“无毒”标签。'],
  logs:['运行日志与风险说明','保留操作原因和状态；扫描与报告只保存在当前设备。']
 };
-const PAGE_BREADCRUMB={cache:'空间管理 / 智能缓存清理',large:'空间管理 / 大文件定位',inspect:'磁盘管理 / 分类与查重',advice:'决策中心 / 分级建议',tools:'系统管理 / 辅助工具',security:'安全中心 / 来源验证',logs:'透明记录 / 操作日志'};
+const PAGE_BREADCRUMB={cache:'空间管理 / 智能缓存清理',unity:'开发空间 / Unity 专项',large:'空间管理 / 大文件定位',inspect:'磁盘管理 / 分类与查重',advice:'决策中心 / 分级建议',tools:'系统管理 / 辅助工具',security:'安全中心 / 来源验证',logs:'透明记录 / 操作日志'};
 function toggleDensity(){const compact=document.body.dataset.density!=='compact';document.body.dataset.density=compact?'compact':'comfortable';const btn=E('density-toggle');btn.textContent=compact?'▤ 紧凑视图':'▤ 舒适视图';btn.setAttribute('aria-pressed',String(compact));}
 function scrollToInspect(id){const target=E(id);if(target){target.scrollIntoView({behavior:'smooth',block:'start'});}}
-function switchPage(s){if(!sections.includes(s))return;const changed=view!==s;view=s;document.body.dataset.view=s;const head=PAGE_HEADERS[s];E('main-title').textContent=head[0];E('main-subtitle').textContent=head[1];E('page-breadcrumb').textContent=PAGE_BREADCRUMB[s];for(const name of sections){const el=E('nav-'+name);if(name===s)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');}E('workspace').classList.toggle('security-layout',s==='security'||s==='tools');E('workspace').classList.toggle('inspect-layout',s==='inspect');E('detail-panel').classList.toggle('hide',s==='inspect');for(const name of sections){E('page-'+name).classList.toggle('hide',name!==s);E('nav-'+name).classList.toggle('active',name===s)}selectedRow=null;selectedKind=null;showDetail();if(changed)window.scrollTo(0,0)}
+function switchPage(s){if(!sections.includes(s))return;const changed=view!==s;view=s;document.body.dataset.view=s;const head=PAGE_HEADERS[s];E('main-title').textContent=head[0];E('main-subtitle').textContent=head[1];E('page-breadcrumb').textContent=PAGE_BREADCRUMB[s];for(const name of sections){const el=E('nav-'+name);if(name===s)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');}E('workspace').classList.toggle('security-layout',s==='security'||s==='tools');E('workspace').classList.toggle('inspect-layout',s==='inspect'||s==='unity');E('detail-panel').classList.toggle('hide',s==='inspect'||s==='unity');for(const name of sections){E('page-'+name).classList.toggle('hide',name!==s);E('nav-'+name).classList.toggle('active',name===s)}selectedRow=null;selectedKind=null;showDetail();if(s==='unity')renderUnity();if(changed)window.scrollTo(0,0)}
 
-const QUICK_NAV_KEYWORDS={cache:'扫描 缓存 风险 C盘 删除预览',large:'大文件 查找 容量 Everything 只读',inspect:'多盘 重复 查重 SHA256 分类 D盘 E盘',advice:'分级 建议 优先级 风险',tools:'环境 Python 工具 Everything',security:'VirusTotal 病毒检测 安全 校验 哈希',logs:'日志 诊断 记录 保护'};
+const QUICK_NAV_KEYWORDS={cache:'扫描 缓存 风险 C盘 删除预览',unity:'Unity UPM Hub 光照 GI Bee 构建 缓存 离线 D盘 C盘',large:'大文件 查找 容量 Everything 只读',inspect:'多盘 重复 查重 SHA256 分类 D盘 E盘',advice:'分级 建议 优先级 风险',tools:'环境 Python 工具 Everything',security:'VirusTotal 病毒检测 安全 校验 哈希',logs:'日志 诊断 记录 保护'};
 function renderQuickNav(){
  const query=E('quicknav-input').value.trim().toLowerCase(),root=E('quicknav-list');root.replaceChildren();
  const matches=sections.filter(key=>[PAGE_HEADERS[key][0],PAGE_BREADCRUMB[key],QUICK_NAV_KEYWORDS[key]].join(' ').toLowerCase().includes(query));
@@ -577,12 +614,21 @@ function updateConnectionStatus(){
  badge.classList.toggle('offline',!online);
  if(!online){
   previewPageValidated=false;
-  E('btn-clean').disabled=true;E('preview-approve').disabled=true;
+  E('btn-clean').disabled=true;E('btn-unity-preview').disabled=true;E('btn-unity-scan').disabled=true;E('preview-approve').disabled=true;
   if(E('clean-preview-dialog').open)E('preview-page-state').textContent='本地连接中断。请取消并重新生成完整文件预览。';
  }
 }
 
-async function startScan(mode){if(latest?.busy)return;selected.clear();markSelectionChanged();if(latest)latest.items=[];renderCache();try{notify('正在启动扫描...');await post('/api/scan',{mode})}catch(e){alert(e.message)}}
+async function startScan(mode){
+ if(latest?.busy||unityScanRequestInFlight)return;
+ const preserve_offline=mode==='unity'?E('unity-preserve-offline').checked:true;
+ stateRequestRevision++;unityScanRequestInFlight=true;unityPendingPolicy=preserve_offline;
+ selected.clear();markSelectionChanged();if(latest){latest.items=[];if(mode==='unity')latest.unity=null}
+ renderCache();renderUnity();
+ try{notify(mode==='unity'?'正在启动 Unity 只读扫描...':'正在启动扫描...');await post('/api/scan',{mode,preserve_offline});if(mode==='unity')unityPolicyDirty=false}
+ catch(e){unityPendingPolicy=null;alert(e.message)}
+ finally{stateRequestRevision++;unityScanRequestInFlight=false;renderUnity()}
+}
 async function setupEverything(){
  if(latest?.busy)return;
  if(!confirm('将从 voidtools 官方网站下载固定版本 Everything 与 ES CLI，并校验 SHA-256 后解压到本工具目录。\n\nEverything 启动后可能提示设置索引服务或管理员权限。\n\n不会自动安装服务、改注册表或修改系统 PATH。是否继续？'))return;
@@ -615,7 +661,9 @@ function renderToolbox(){const t=latest?.toolbox||{},py=t.python||{},every=lates
  for(const name of ['btn-setup-everything','btn-launch-everything']) E(name).disabled=!!latest?.busy||!!t.busy;
 }
 
-function allSelected(){const byid=new Map(latest?.items?.map(x=>[x.id,x])||[]);return [...selected].map(id=>byid.get(id)).filter(x=>x&&x.allowed)}
+function isUnityCache(row){return typeof row?.group==='string'&&row.group.startsWith('unity-')}
+function selectableCache(row){return !!row?.allowed&&(!isUnityCache(row)||(!unityPolicyDirty&&unityPendingPolicy===null))}
+function allSelected(){const byid=new Map(latest?.items?.map(x=>[x.id,x])||[]);return [...selected].map(id=>byid.get(id)).filter(x=>selectableCache(x))}
 function selectedSize(){return allSelected().reduce((n,x)=>n+x.size,0)}
 function markSelectionChanged(){
  selectionRevision++;
@@ -630,13 +678,18 @@ function updateSelection(){
  const list=allSelected(),total=selectedSize(),green=list.filter(x=>x.risk==='green').length,amber=list.filter(x=>x.risk==='amber').length;
  E('selected-size').textContent=fmt(total)+' / '+list.length+' 项';
  E('btn-clean').disabled=!list.length||!!latest?.busy||connectionHealth!=='online'||previewRequestInFlight||!!pendingPreview||cleanSubmitInFlight;
- const greenRows=(latest?.items||[]).filter(x=>x.allowed&&x.risk==='green');
+ const greenRows=(latest?.items||[]).filter(x=>selectableCache(x)&&x.risk==='green'&&!isUnityCache(x));
  E('check-all-green').checked=greenRows.length>0&&greenRows.every(x=>selected.has(x.id));
  E('check-all-green').disabled=!greenRows.length||!!latest?.busy||connectionHealth!=='online';
  const msg=list.length?('已选 '+list.length+' 项 · 绿色 '+green+' / 黄色 '+amber+' · 逻辑大小约 '+fmt(total)+(amber?' · 黄色项目需复核重建代价。':' · 清理前仍需逐文件预览与 DELETE。')):'尚未选择任何项目；文件未删除。';
  if(E('selection-review').textContent!==msg)E('selection-review').textContent=msg;
  E('selection-review-strip').classList.toggle('contains-amber',amber>0);
  E('clear-selection').disabled=!selected.size;
+ const unitySelected=list.filter(isUnityCache),unityTotal=unitySelected.reduce((sum,row)=>sum+Number(row.size||0),0);
+ E('unity-selection-review').textContent=unitySelected.length?`已选 ${unitySelected.length} 项 Unity 缓存 · 逻辑大小 ${fmt(unityTotal)}`:'尚未选择 Unity 缓存';
+ E('unity-selection-note').textContent=list.length>unitySelected.length?'此次 Unity 预览仅包含本页已选缓存；其他页面的选择不会加入。':'下一步仅打开逐文件预览，不会立即删除。';
+ E('btn-unity-preview').disabled=!unitySelected.length||!!latest?.busy||connectionHealth!=='online'||previewRequestInFlight||!!pendingPreview||cleanSubmitInFlight||unityPolicyDirty;
+ E('btn-unity-clear').disabled=!unitySelected.length||!!pendingPreview;
 }
 async function loadPreviewPage(offset){
  const p=pendingPreview;if(!p)return;
@@ -662,10 +715,10 @@ async function loadPreviewPage(offset){
   if(pendingPreview===p&&requestId===previewPageRequest){E('preview-page-state').textContent='文件清单读取失败：'+e.message;previewPageValidated=false;E('preview-approve').disabled=true;}
  }
 }
-async function cleanSelected(){
+async function cleanSelected(scope=null){
  if(previewRequestInFlight||cleanSubmitInFlight||pendingPreview||E('clean-preview-dialog').open)return;
  if(connectionHealth!=='online'){notify('本地连接中断，请恢复后重新生成预览。');return}
- const rows=allSelected();
+ const rows=scope==='unity'?allSelected().filter(isUnityCache):allSelected();
  if(!rows.length)return;
  if(latest?.busy){notify('请在任务结束后重新预览。');return}
  const ids=rows.map(x=>x.id),revision=selectionRevision;
@@ -735,9 +788,59 @@ function showDetail(){let item;if(selectedKind==='cache')item=(latest?.items||[]
 function sortedCache(){const query=E('search-cache').value.trim().toLowerCase(),filter=E('filter-cache').value;const list=(latest?.items||[]).filter(x=>(filter==='all'||x.risk===filter)&&(!query||(x.name+' '+x.path+' '+x.note+' '+x.state).toLowerCase().includes(query)));list.sort((a,b)=>{let cmp=0;if(sortBy==='risk')cmp=(sortRank[a.risk]||0)-(sortRank[b.risk]||0);else if(sortBy==='priority')cmp=Number((a.priority||'P4').substring(1))-Number((b.priority||'P4').substring(1));else if(sortBy==='size'||sortBy==='count')cmp=(a[sortBy]||0)-(b[sortBy]||0);else cmp=String(a[sortBy]||'').localeCompare(String(b[sortBy]||''),'zh-CN');if(cmp===0)cmp=b.size-a.size;return cmp*sortDir});return list}
 function renderMobileCache(list){const el=E('cache-mobile-cards');if(!el)return;
  if(!list.length){el.innerHTML='<div class="mobile-empty">暂无候选文件。请先点击“开始扫描”或取消当前筛选。</div>';return}
- el.innerHTML=list.map(x=>`<article class="mobile-file-card ${x.allowed?'':'protected'}" data-id="${esc(x.id)}"><div class="mobile-file-head"><div class="mobile-file-labels">${prioTag(x.priority)} ${riskTag(x.risk)}</div><strong class="mobile-file-size">${fmt(x.size)}</strong></div><div class="mobile-file-name">${esc(x.name)}</div><div class="mobile-file-path">${esc(x.path)}</div><div class="mobile-file-meta"><span>${Number(x.count||0).toLocaleString('zh-CN')} 个文件</span><span>${esc(x.allowed?'可选择 · 需预览':'只读 / 不可清理')}</span></div><div class="mobile-file-actions"><label><input class="checkbox" data-mobile-check="${esc(x.id)}" type="checkbox" ${selected.has(x.id)?'checked':''} ${!x.allowed?'disabled':''}> ${esc(x.allowed?'选择此项':'受保护')}</label><button class="button tiny" data-mobile-detail="${esc(x.id)}">查看路径与理由 →</button></div></article>`).join('');
+ el.innerHTML=list.map(x=>`<article class="mobile-file-card ${selectableCache(x)?'':'protected'}" data-id="${esc(x.id)}"><div class="mobile-file-head"><div class="mobile-file-labels">${prioTag(x.priority)} ${riskTag(x.risk)}</div><strong class="mobile-file-size">${fmt(x.size)}</strong></div><div class="mobile-file-name">${esc(x.name)}</div><div class="mobile-file-path">${esc(x.path)}</div><div class="mobile-file-meta"><span>${Number(x.count||0).toLocaleString('zh-CN')} 个文件</span><span>${esc(selectableCache(x)?'可选择 · 需预览':'只读 / 不可清理')}</span></div><div class="mobile-file-actions"><label><input class="checkbox" data-mobile-check="${esc(x.id)}" type="checkbox" ${selected.has(x.id)?'checked':''} ${!selectableCache(x)?'disabled':''}> ${esc(selectableCache(x)?'选择此项':'受保护')}</label><button class="button tiny" data-mobile-detail="${esc(x.id)}">查看路径与理由 →</button></div></article>`).join('');
 }
-function renderCache(){const list=sortedCache(),el=E('cache-rows');if(!list.length){el.innerHTML=`<tr><td class="empty" colspan="7">${latest?.busy?'正在扫描，请查看上方进度...':'没有符合条件的清理项目；尝试清除筛选或重新扫描。'}</td></tr>`;renderMobileCache([]);updateSelection();return}const largest=Math.max(...list.map(x=>x.size),1);el.innerHTML=list.map(x=>`<tr data-kind="cache" data-id="${esc(x.id)}" class="${selectedRow===x.id&&selectedKind==='cache'?'selected ':''}${!x.allowed?'dim':''}"><td><input type="checkbox" class="checkbox" data-check="${esc(x.id)}" ${selected.has(x.id)?'checked':''} ${!x.allowed?'disabled':''}></td><td>${prioTag(x.priority)}</td><td>${riskTag(x.risk)}</td><td><div class="cell-name" title="${esc(x.name)}">${esc(x.name)}</div><div class="cell-path" title="${esc(x.path)}">${esc(x.path)}</div></td><td class="tabular"><strong>${fmt(x.size)}</strong><div class="sizebar"><span style="width:${Math.max(0,x.size/largest*100).toFixed(2)}%"></span></div></td><td class="tabular">${x.count.toLocaleString()}</td><td><div class="hint">${esc(x.note)}</div><div class="hint muted">${esc(x.state)}</div></td></tr>`).join('');E('cache-summary').textContent=`显示 ${list.length} 项 / 共 ${(latest?.items||[]).length} 项 · ${latest?.scan_complete?'扫描完整':'未完全扫描 / 尚未开始'}`;renderMobileCache(list);updateSelection()}
+function renderCache(){const list=sortedCache(),el=E('cache-rows');if(!list.length){el.innerHTML=`<tr><td class="empty" colspan="7">${latest?.busy?'正在扫描，请查看上方进度...':'没有符合条件的清理项目；尝试清除筛选或重新扫描。'}</td></tr>`;renderMobileCache([]);updateSelection();return}const largest=Math.max(...list.map(x=>x.size),1);el.innerHTML=list.map(x=>`<tr data-kind="cache" data-id="${esc(x.id)}" class="${selectedRow===x.id&&selectedKind==='cache'?'selected ':''}${!selectableCache(x)?'dim':''}"><td><input type="checkbox" class="checkbox" data-check="${esc(x.id)}" ${selected.has(x.id)?'checked':''} ${!selectableCache(x)?'disabled':''}></td><td>${prioTag(x.priority)}</td><td>${riskTag(x.risk)}</td><td><div class="cell-name" title="${esc(x.name)}">${esc(x.name)}</div><div class="cell-path" title="${esc(x.path)}">${esc(x.path)}</div></td><td class="tabular"><strong>${fmt(x.size)}</strong><div class="sizebar"><span style="width:${Math.max(0,x.size/largest*100).toFixed(2)}%"></span></div></td><td class="tabular">${x.count.toLocaleString()}</td><td><div class="hint">${esc(x.note)}</div><div class="hint muted">${esc(x.state)}</div></td></tr>`).join('');E('cache-summary').textContent=`显示 ${list.length} 项 / 共 ${(latest?.items||[]).length} 项 · ${latest?.scan_complete?'扫描完整':'未完全扫描 / 尚未开始'}`;renderMobileCache(list);updateSelection()}
+function unityLogicalSize(bytes,complete,exists=true){
+ if(exists===false)return '未找到';
+ const value=Math.max(0,Number(bytes)||0);
+ if(complete!==true)return value?'已读 '+fmt(value):'未完整';
+ return fmt(value);
+}
+function clearUnitySelection(){
+ if(pendingPreview)return;
+ for(const row of latest?.items||[])if(isUnityCache(row))selected.delete(row.id);
+ markSelectionChanged();renderCache();renderUnity();notify('已清空 Unity 缓存选择；没有删除文件。');
+}
+function renderUnity(){
+ const report=latest?.unity,diagnostics=Array.isArray(report?.items)?report.items:[];
+ const cacheRows=(latest?.items||[]).filter(isUnityCache),allowed=cacheRows.filter(selectableCache);
+ const hasAudit=Array.isArray(report?.items)&&report.state!=='未扫描',scanned=hasAudit||cacheRows.length>0;
+ const policy=typeof latest?.preserve_offline==='boolean'?latest.preserve_offline:report?.preserve_offline;
+ // A fresh tab must reflect the server's actual policy. Preserve unsent edits
+ // and a submitted policy until a state request started after submission returns.
+ if(typeof policy==='boolean'&&!unityPolicyDirty&&!unityScanRequestInFlight&&unityPendingPolicy===null)E('unity-preserve-offline').checked=policy;
+ E('unity-free').textContent=latest?.disk?.total?fmt(latest.disk.free):'无法读取';
+ E('unity-cleanable').textContent=scanned?fmt(allowed.reduce((sum,row)=>sum+Number(row.size||0),0)):'—';
+ E('unity-cleanable-note').textContent=unityPolicyDirty?'保护设置已改变，请重新扫描':`${allowed.length} 项允许预览；逻辑大小非释放承诺`;
+ E('unity-policy').textContent=unityPolicyDirty?'待重新扫描':unityPendingPolicy!==null?'等待扫描状态':scanned&&typeof policy==='boolean'?(policy?'已开启':'已解除'):'待扫描';
+ E('unity-offline-note').classList.toggle('unity-policy-changed',unityPolicyDirty||!E('unity-preserve-offline').checked);
+ E('unity-offline-note').textContent=unityPolicyDirty?'设置已改变：本页缓存暂不可选择。重新扫描后生效，清理 UPM 后可能需要联网重新下载。':E('unity-preserve-offline').checked?'保留 UPM 下载包。取消勾选后需重新扫描；清理后可能重新下载，无网络时可能无法还原依赖。':'离线包保护已取消。重新扫描后可手动选择 UPM；清理后可能重新下载，无网络时可能无法还原依赖。';
+ E('btn-unity-scan').disabled=!!latest?.busy||unityScanRequestInFlight||connectionHealth!=='online';
+ E('unity-preserve-offline').disabled=!!latest?.busy||unityScanRequestInFlight||unityPendingPolicy!==null||cleanSubmitInFlight;
+ const complete=report?.complete??report?.summary?.complete;
+ const auditWarning=[report?.warning||report?.note||'',...(Array.isArray(report?.warnings)?report.warnings:[])].filter(Boolean).join(' ');
+ E('unity-status').textContent=unityPolicyDirty?'保护设置已改变，请重新扫描 Unity；已有预览已失效。':latest?.busy?'正在执行任务，扫描结果仅供查看。请等待完成，或使用上方“停止”。':hasAudit?`${complete===true?'已完成本次已知路径诊断':'诊断存在未完成或无法读取的路径'} · ${diagnostics.length} 个诊断位置。${auditWarning}`:cacheRows.length?'已列出本轮 C 盘 Unity 缓存候选。运行专项扫描可同时查看其他盘与自定义缓存路径。':'尚未执行 Unity 专项扫描。扫描只读取目录与文件属性。';
+ const signature=JSON.stringify([cacheRows,diagnostics,report?.settings,report?.totals_by_drive,report?.guidance,[...selected],unityPolicyDirty,unityPendingPolicy,latest?.busy,connectionHealth]);
+ if(signature===lastUnitySignature){updateSelection();return}lastUnitySignature=signature;
+ E('unity-cache-cards').innerHTML=cacheRows.length?cacheRows.map(row=>{
+  const canSelect=selectableCache(row)&&!latest?.busy&&connectionHealth==='online';
+  const status=unityPolicyDirty?'设置已改变，重新扫描后可选择':row.state||'待确认';
+  return `<article class="unity-cache-card ${canSelect?'':'is-protected'} ${selected.has(row.id)&&canSelect?'is-selected':''}"><div class="unity-cache-title"><strong>${esc(row.name)}</strong><span class="unity-cache-size">${row.complete===false?'已读 ':''}${fmt(row.size)}</span></div><div>${prioTag(row.priority)} ${riskTag(row.risk)}</div><div class="mono">${esc(row.path)}</div><p>${esc(row.reason||row.note||'请检查清理后重建或下载的影响。')}</p><div class="unity-cache-meta"><span>${Number(row.count||0).toLocaleString('zh-CN')} 个候选文件</span><span>${Number(row.age_days||0)>0?'保留最近 '+Number(row.age_days)+' 天':'缓存可能整体重新下载或重建'}</span></div><p>${esc(status)}</p><label class="unity-cache-choice"><input type="checkbox" class="checkbox" data-unity-check="${esc(row.id)}" ${selected.has(row.id)&&canSelect?'checked':''} ${canSelect?'':'disabled'}> ${canSelect?'选择此项，稍后核对文件清单':'本项暂不可选择'}</label></article>`;
+ }).join(''):'<div class="unity-empty">'+(latest?.busy?'正在读取 Unity 缓存，请等待扫描完成。':scanned?'本轮没有可用于清理预览的固定 C 盘 Unity 目标。请查看下方诊断状态。':'先点击“扫描 Unity 占用”。所有清理选项初始均未勾选。')+'</div>';
+ const grouped=new Map();for(const row of diagnostics){const drive=String(row.drive||'未识别盘符');if(!grouped.has(drive))grouped.set(drive,[]);grouped.get(drive).push(row)}
+ const volumes=[...grouped.keys()].sort((a,b)=>a==='C:'?-1:b==='C:'?1:a.localeCompare(b));
+ E('unity-audit-volumes').innerHTML=volumes.length?volumes.map(drive=>{
+  const rows=grouped.get(drive),total=report?.totals_by_drive?.[drive];
+  const summary=total?`${unityLogicalSize(total.bytes,total.complete)} · 已读文件去重汇总`:`${rows.length} 个诊断位置 · 未提供去重汇总`;
+  return `<section class="unity-volume"><div class="unity-volume-head"><strong>${esc(drive)} ${drive==='C:'?'系统盘':'其他位置'}</strong><span>${esc(summary)}</span></div>${rows.map(row=>`<article class="unity-audit-item"><header><h4>${esc(row.name)} <span class="unity-audit-status">· ${esc(row.action||'仅诊断')}</span></h4><span class="unity-audit-size">${esc(unityLogicalSize(row.bytes,row.complete,row.exists))}</span></header><div class="mono">${esc(row.path)}</div><p>${esc(row.reason||'通过对应软件管理此位置。')}</p><p class="unity-audit-status">${esc(row.state||'待检查')} · 来源：${esc(row.source||'已知路径')}${Number(row.errors)>0?' · 读取错误 '+Number(row.errors):''}${Number(row.duplicate_files)>0?' · '+Number(row.duplicate_files)+' 个重复文件未重复计入':''}</p></article>`).join('')}</section>`;
+ }).join(''):'<div class="unity-empty">'+(hasAudit?'本轮没有可读取的已知缓存路径。请查看扫描状态与路径设置，不能据此判断 C 盘没有 Unity 数据。':'等待专项扫描实际路径；不会把 D 盘占用计入 C 盘可清理空间。')+'</div>';
+ const settings=Array.isArray(report?.settings)?report.settings:[];
+ E('unity-settings-content').innerHTML=(report?.settings_scope?'<div class="unity-setting">'+esc(report.settings_scope)+'</div>':'')+(settings.length?settings.map(item=>`<div class="unity-setting"><strong>${esc(item.name)}</strong> · ${esc(item.source||'检测到的设置')}<br><code>${esc(item.value||'未设置')}</code>${item.valid===false?'<br>路径无效或不适合扫描；未据此授权清理。':''}${item.note?'<br>'+esc(item.note):''}</div>`).join(''):'<div class="unity-setting">'+(hasAudit?'未检测到可展示的路径覆盖设置；仍需在 Unity 中确认各版本实际使用的位置。':'尚未读取路径设置。')+'</div>');
+ const guidance=Array.isArray(report?.guidance)?report.guidance:[];
+ E('unity-extra-guidance').innerHTML=guidance.length?'<details class="unity-settings"><summary>查看本次诊断的配置建议</summary>'+guidance.map(item=>`<div class="unity-setting"><strong>${esc(item.title||'路径建议')}</strong>${item.text?'<br>'+esc(item.text):''}${Array.isArray(item.steps)?'<ol>'+item.steps.map(step=>'<li>'+esc(step)+'</li>').join('')+'</ol>':''}</div>`).join('')+'</details>':'';
+ updateSelection();
+}
 function renderLarge(){const query=E('search-large').value.trim().toLowerCase();const list=(latest?.large_files||[]).filter(x=>!query||(x.path+' '+x.reason).toLowerCase().includes(query));E('large-rows').innerHTML=list.length?list.map(x=>`<tr data-kind="large" data-id="${esc(x.id)}" class="${selectedRow===x.id&&selectedKind==='large'?'selected':''}"><td>${prioTag(x.priority)}</td><td>${riskTag(x.risk)}</td><td class="tabular">${fmt(x.size)}</td><td class="tabular">${esc(x.mtime)}</td><td><div class="cell-name" title="${esc(x.path)}">${esc(x.path.split(/[\\/]/).pop())}</div><div class="cell-path" title="${esc(x.path)}">${esc(x.path)}</div></td></tr>`).join(''):'<tr><td colspan="5" class="empty">暂无大文件结果。点击“开始查找”或调整筛选。</td></tr>';const info=latest?.large_info||{}, warning=info.warning||'';E('large-source').textContent=`数据来源：${info.source||'未扫描'} ${info.scanned_entries?'· 记录/检查 '+Number(info.scanned_entries).toLocaleString()+' 条':''} ${info.complete?'· 已完成':'· 可能不完整'}。${warning}`;E('large-summary').textContent=`显示 ${list.length} 项 / ${(latest?.large_files||[]).length} 项；此表只读，不允许删除。`}
 function jumpTo(page,filter=''){switchPage(page);if(page==='cache'&&filter){E('filter-cache').value=filter;renderCache();}if(page==='large')renderLarge();if(page==='inspect')renderInspection();if(page==='advice')renderAdvice();}
 function guidanceTone(risk){return risk==='green'?'tone-green':risk==='amber'?'tone-amber':risk==='orange'?'tone-orange':'tone-red'}
@@ -820,7 +923,7 @@ function renderCleanupResult(){
 function draw(){if(!latest)return;const d=latest.disk||{},rows=latest.items||[],g=rows.filter(x=>x.allowed&&x.risk==='green'),a=rows.filter(x=>x.allowed&&x.risk==='amber');E('m-free').textContent=d.total?fmt(d.free):'不可用';E('m-percent').textContent=d.total?`总容量 ${fmt(d.total)} · 已使用 ${Math.round(d.used/d.total*100)}%`:'无法取得 C 盘用量';E('m-green').textContent=fmt(g.reduce((v,x)=>v+x.size,0));E('m-green-foot').textContent=`${g.length} 项 · 默认推荐`;E('m-amber').textContent=fmt(a.reduce((v,x)=>v+x.size,0));E('m-amber-foot').textContent=`${a.length} 项 · 主动选择`;E('m-count').textContent=rows.reduce((n,x)=>n+x.count,0).toLocaleString();E('m-count-foot').textContent=`${rows.length} 个已识别目录目标`;const percent=d.total?Math.round(d.used/d.total*100):0;E('disk-usage-bar').style.width=percent+'%';E('disk-usage-track').setAttribute('aria-valuenow',String(percent));E('disk-usage-note').textContent=d.total?('已使用 '+percent+'%'):'待检测';
  const busy=latest.busy;E('task-dot').classList.toggle('busy',busy);E('task-msg').textContent=latest.message||'';const pct=Math.max(0,Math.min(100,Math.round((latest.progress||0)/Math.max(1,latest.progress_max||1)*100)));E('progressbar').style.width=pct+'%';E('progressnum').textContent=pct+'%';for(const b of ['btn-fast','btn-full','btn-large','btn-everything','btn-hero-fast'])E(b).disabled=busy;E('btn-stop').disabled=!busy;E('esSide').textContent='索引：'+(latest.es_status||'检测中'); if(latest.everything?.ready)E('btn-everything').textContent='重新启动/校验 Everything';
 const ids=new Set(rows.map(x=>x.id));let pruned=false;for(const k of [...selected])if(!ids.has(k)||!rows.find(x=>x.id===k&&x.allowed)){selected.delete(k);pruned=true}if(pruned)markSelectionChanged();
- renderCleanupResult();renderDecisionHub();renderDriveChoices();renderInspection();renderCache();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
+ renderCleanupResult();renderDecisionHub();renderDriveChoices();renderInspection();renderCache();renderUnity();renderLarge();renderAdvice();renderLogs();renderToolbox();if(selectedRow)showDetail();updateSelection()}
 
 // Multi-disk inspection is read-only. There are deliberately no delete/move calls.
 let lastDriveSignature='__first__', lastInspectSignature='__first__';
@@ -887,12 +990,25 @@ function renderInspection(){
  E('inspect-duplicates').innerHTML=groups.length?groups.map((g,i)=>`<details class="inspect-dup"><summary>第 ${i+1} 组 · ${Number(g.count).toLocaleString('zh-CN')} 份完全相同 · 每份 ${fmt(g.size)} · 理论重复量 ${fmt(g.theoretical_bytes)} <span class="soft">（展开查看位置）</span></summary><p class="digest">SHA-256: ${esc(g.sha256)}</p><div class="inspect-path"><strong>建议保留的候选原件</strong> · ${esc(g.keeper.path)}<div class="path-note">${esc(g.keeper.reason)}</div></div>${(g.copies||[]).map(c=>`<div class="inspect-path">${riskTag(c.risk)} ${esc(c.path)}<div class="path-note">${esc(c.suggestion)} · ${esc(c.reason)}</div></div>`).join('')}<p class="soft">${esc(g.warning)}</p></details>`).join(''):'<p class="soft">当前结果中未找到完整 SHA-256 一致的重复组。若已达到扫描预算，此结论不代表全盘无重复。</p>';
 }
 
-async function poll(){if(pollRunning)return;pollRunning=true;try{latest=await getState();connectionHealth='online';draw();updateConnectionStatus()}catch(e){connectionHealth='offline';notify('本地连接暂时失败：'+e.message);updateConnectionStatus()}finally{pollRunning=false}}
+async function poll(){if(pollRunning)return;pollRunning=true;const revision=stateRequestRevision;try{const next=await getState();if(revision!==stateRequestRevision||unityScanRequestInFlight)return;latest=next;unityPendingPolicy=null;connectionHealth='online';draw();updateConnectionStatus()}catch(e){if(revision!==stateRequestRevision)return;connectionHealth='offline';notify('本地连接暂时失败：'+e.message);updateConnectionStatus()}finally{pollRunning=false}}
+E('unity-preserve-offline').addEventListener('change',()=>{
+ unityPolicyDirty=true;
+ for(const row of latest?.items||[])if(isUnityCache(row))selected.delete(row.id);
+ markSelectionChanged();renderCache();renderUnity();
+ notify('离线包保护设置已改变，请重新扫描 Unity；尚未删除文件。');
+});
+E('unity-cache-cards').addEventListener('change',event=>{
+ const input=event.target.closest('input[data-unity-check]');if(!input)return;
+ const row=(latest?.items||[]).find(item=>item.id===input.dataset.unityCheck);
+ if(!isUnityCache(row)||!selectableCache(row)||latest?.busy||connectionHealth!=='online'||pendingPreview){input.checked=false;return}
+ if(input.checked)selected.add(row.id);else selected.delete(row.id);
+ markSelectionChanged();renderCache();renderUnity();
+});
 E('cache-mobile-cards').addEventListener('click',e=>{const card=e.target.closest('article[data-id]');if(!card)return;const id=card.dataset.id;
  if(e.target.matches('input[data-mobile-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);markSelectionChanged();renderCache();return;}
  if(e.target.closest('[data-mobile-detail]')){selectedRow=id;selectedKind='cache';showDetail();const panel=E('detail-panel');panel.classList.remove('hide');panel.scrollIntoView({behavior:'smooth',block:'start'});return;}
 });
-E('clear-selection').addEventListener('click',()=>{if(pendingPreview)return;selected.clear();markSelectionChanged();renderCache();notify('已清空选择；没有删除文件。')});
+E('clear-selection').addEventListener('click',()=>{if(pendingPreview)return;selected.clear();markSelectionChanged();renderCache();renderUnity();notify('已清空选择；没有删除文件。')});
 E('quicknav-input').addEventListener('input',renderQuickNav);
 E('quicknav-dialog').addEventListener('close',()=>{if(quickNavPreviousFocus?.isConnected)quickNavPreviousFocus.focus();quickNavPreviousFocus=null});
 document.addEventListener('keydown',e=>{
@@ -904,7 +1020,7 @@ document.addEventListener('keydown',e=>{
 });
 E('cache-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;const id=row.dataset.id;if(e.target.matches('input[data-check]')){if(e.target.checked)selected.add(id);else selected.delete(id);markSelectionChanged();updateSelection();return}selectedRow=id;selectedKind='cache';renderCache();showDetail()});
 E('large-rows').addEventListener('click',e=>{const row=e.target.closest('tr[data-id]');if(!row)return;selectedRow=row.dataset.id;selectedKind='large';renderLarge();showDetail()});
-E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>x.allowed&&x.risk==='green'))e.target.checked?selected.add(x.id):selected.delete(x.id);markSelectionChanged();renderCache()});
+E('check-all-green').addEventListener('change',e=>{for(const x of (latest?.items||[]).filter(x=>selectableCache(x)&&x.risk==='green'&&!isUnityCache(x)))e.target.checked?selected.add(x.id):selected.delete(x.id);markSelectionChanged();renderCache();renderUnity()});
 E('goal-select').addEventListener('change',()=>{lastAdviceSignature='__changed__';renderAdvice();});
 E('search-cache').addEventListener('input',renderCache);E('filter-cache').addEventListener('change',renderCache);E('search-large').addEventListener('input',renderLarge);
 document.querySelectorAll('th[data-sort]').forEach(el=>el.addEventListener('click',()=>{const field=el.dataset.sort;if(field===sortBy)sortDir=-sortDir;else{sortBy=field;sortDir=field==='size'||field==='count'?-1:1}renderCache()}));

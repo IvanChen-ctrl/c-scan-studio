@@ -1,0 +1,51 @@
+name: Build Windows portable EXE
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cscan-windows-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: 'utf-8'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  portable:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          # Official Windows release with installers, not a source-only release.
+          # https://www.python.org/downloads/release/python-31317/
+          python-version: '3.13.17'
+          architecture: 'x64'
+      - name: Verify committed source before packaging
+        run: python scripts/verify_source_manifest.py
+      - name: Run Unity and packaging regressions
+        run: python -m unittest discover -s tests_v37 -v
+      - name: Build onedir EXE and execute its real read-only HTTP smoke test
+        run: python scripts/build_windows_exe.py --install-build-deps --outdir "${{ runner.temp }}/cscan-windows-output"
+      - name: Upload portable ZIP, SHA-256 and actual smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: C-Scan-Studio-v3.7.0-beta.1-Windows-x64
+          path: |
+            ${{ runner.temp }}/cscan-windows-output/*.zip
+            ${{ runner.temp }}/cscan-windows-output/*.sha256.txt
+            ${{ runner.temp }}/cscan-windows-output/windows-exe-smoke.json
+            ${{ runner.temp }}/cscan-windows-output/windows-exe-build-info.json
+          if-no-files-found: error
+          retention-days: 30

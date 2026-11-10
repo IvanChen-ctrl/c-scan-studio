@@ -323,7 +323,7 @@ class LaunchersContractTests(unittest.TestCase):
         self.assertNotIn('set "CLEAN_ARGS=--one-click"', self.bat)
         self.assertNotIn('rmdir /s', self.bat.lower())
         self.assertNotIn('del /', self.bat.lower())
-        self.assertEqual(app.VERSION, '2.2.0')
+        self.assertEqual(app.VERSION, '2.3.0')
 
     def test_download_uses_pinned_sha256_and_official_python_url(self):
         hashes = (

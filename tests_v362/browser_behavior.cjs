@@ -9,9 +9,16 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 
 const page = fs.readFileSync(path.join(__dirname, '..', 'ui', 'dashboard.html'), 'utf8');
-const scriptMatch = page.match(/<script>([\s\S]*?)<\/script>/);
-assert.ok(scriptMatch, 'dashboard must contain an inline script');
-const script = scriptMatch[1];
+// This is a trusted repository template, not an HTML sanitizer. Reject changes
+// to its single inline-script structure before executing the exact body.
+assert.equal(page.split('<script>').length, 2, 'dashboard must have one exact script opener');
+assert.equal(page.split('</script>').length, 2, 'dashboard must have one exact script closer');
+assert.equal(page.toLowerCase().split('<script').length, 2, 'additional script tags are unsupported');
+assert.equal(page.toLowerCase().split('</script').length, 2, 'additional script closers are unsupported');
+const scriptStart = page.indexOf('<script>') + '<script>'.length;
+const scriptEnd = page.indexOf('</script>');
+assert.ok(scriptEnd > scriptStart, 'script closing delimiter must follow its nonempty body');
+const script = page.slice(scriptStart, scriptEnd);
 
 class MockElement {
   constructor(id, document) {
@@ -153,7 +160,7 @@ async function runTest(title, fn) {
     const evt=h.document.emit('keydown',{key:'k',ctrlKey:true,target:opener});
     assert.equal(evt.defaultPrevented,true);
     assert.equal(h.get('quicknav-dialog').open,true);
-    assert.equal(h.get('quicknav-list').children.length,7);
+    assert.equal(h.get('quicknav-list').children.length,8);
     h.get('quicknav-input').value='查重';
     h.get('quicknav-input').emit('input');
     assert.equal(h.get('quicknav-list').children.length,1);

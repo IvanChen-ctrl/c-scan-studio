@@ -27,9 +27,14 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
-VERSION = "2.2.0"
-FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+# ``python -I script.py`` omits the script directory from its import path.
+# Add only this bundled application's directory, never the caller's cwd.
 TOOLKIT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLKIT_DIR))
+import Unity_Cache_Manager as unity_cache
+
+VERSION = "2.3.0"
+FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 GROUPS = {
     "user-temp": ("用户临时文件", 14),
     "wer": ("已归档 Windows 错误报告", 14),
@@ -46,6 +51,7 @@ GROUPS = {
     "system-temp": ("Windows 系统临时文件", 7),
     "system-wer": ("已归档系统错误报告", 7),
 }
+GROUPS.update(unity_cache.UNITY_GROUPS)
 DEFAULT_GROUPS = ("user-temp", "wer")
 # Never add system-temp, crash or conda package archives to this preset.
 # One-click is destructive and therefore limited to discardable cache targets.
@@ -62,11 +68,14 @@ PRESERVE_TEMP_DIR_NAMES = frozenset(
      "backup", "backups", "source", "sources", "src", "site-packages", "conda",
      "anaconda", "anaconda3", "miniconda", "miniconda3", "miniforge", "miniforge3",
      "mambaforge", "pytorch", "torch", "transformers", "stable-diffusion", "comfyui",
-     "output", "outputs", ".git", ".svn")
+     "output", "outputs", ".git", ".svn", "unity", "unityhub", "unity hub",
+     "assets", "projectsettings", "usersettings", "packages", "library",
+     ".gradle", ".android", "sdk", "ndk", "openjdk")
 )
 PROJECT_MARKERS = frozenset((
     ".git", "pyproject.toml", "setup.py", "environment.yml", "environment.yaml",
     "requirements.txt", "conda-meta", "package.json", "CMakeLists.txt",
+    "ProjectSettings/ProjectVersion.txt",
 ))
 # A user's meaningful project/model files might be sitting in Temp.  Never
 # silently delete them even when their containing temp directory is old.
@@ -81,7 +90,8 @@ PRESERVE_TEMP_SUFFIXES = frozenset((
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     ".csv", ".json", ".txt", ".md", ".xml", ".lrc", ".srt",
     ".ass", ".cpp", ".cs", ".h", ".js", ".ts", ".fbx", ".obj",
-    ".glb", ".gltf", ".html", ".htm",
+    ".glb", ".gltf", ".html", ".htm", ".meta", ".asset", ".prefab",
+    ".mat", ".shader", ".shadergraph", ".asmdef", ".asmref", ".ulf",
 ))
 BROWSER_PROCESSES = {
     "chrome": "chrome.exe",
@@ -176,6 +186,8 @@ class Target:
     path: Path
     boundary: Path
     process_name: str = ""
+    process_names: Tuple[str, ...] = ()
+    file_names: Tuple[str, ...] = ()
 
     def valid(self) -> bool:
         if not (is_c_drive(self.path) and is_c_drive(self.boundary)):
@@ -226,8 +238,11 @@ class Result:
 
 
 def add_unique(out: Dict[str, Target], group: str, name: str, path: Path,
-               boundary: Path, process_name: str = "") -> None:
-    candidate = Target(group, name, path, boundary, process_name)
+               boundary: Path, process_name: str = "", *,
+               process_names: Tuple[str, ...] = (),
+               file_names: Tuple[str, ...] = ()) -> None:
+    candidate = Target(group, name, path, boundary, process_name,
+                       tuple(process_names), tuple(file_names))
     if not candidate.valid():
         return
     out.setdefault(ntpath.normcase(ntpath.normpath(str(path))), candidate)
@@ -237,6 +252,11 @@ def make_targets(env: Optional[Dict[str, str]] = None) -> List[Target]:
     env = dict(os.environ if env is None else env)
     out: Dict[str, Target] = {}
     profile, local, roaming = safe_user_roots(env)
+    if profile and local:
+        # Only documented, fixed per-user leaf directories become deletion
+        # targets. Environment/configuration overrides are audited read-only.
+        for spec in unity_cache.cleanup_specs(profile, local, roaming):
+            add_unique(out, **spec)
     if profile and local:
         add_unique(out, "user-temp", "用户 Temp", local / "Temp", local)
         # Respect user-configured TEMP only when it stays inside their profile.
@@ -380,6 +400,32 @@ def make_targets(env: Optional[Dict[str, str]] = None) -> List[Target]:
     return list(out.values())
 
 
+def required_processes(target: Target) -> Tuple[str, ...]:
+    return tuple(dict.fromkeys(name.casefold() for name in
+                              (target.process_name, *target.process_names) if name))
+
+
+def process_blocks_target(target: Target, processes: Optional[set[str]]) -> bool:
+    required = required_processes(target)
+    return bool(required and (processes is None or
+                             set(required).intersection(name.casefold() for name in processes)))
+
+
+def target_file_permitted(target: Target, path: Path) -> bool:
+    """Log targets allow exact direct children only, never their parent tree."""
+    return not target.file_names or (
+        same_path(path.parent, target.path) and
+        path.name.casefold() in {name.casefold() for name in target.file_names})
+
+
+def unity_project_directory(path: Path) -> bool:
+    try:
+        return ((path / "ProjectSettings" / "ProjectVersion.txt").exists() or
+                ((path / "Assets").is_dir() and (path / "ProjectSettings").is_dir()))
+    except OSError:
+        return True
+
+
 def active_processes() -> Optional[set[str]]:
     """Return None if process enumeration cannot be trusted (fail closed)."""
     try:
@@ -390,13 +436,21 @@ def active_processes() -> Optional[set[str]]:
         # tasklist uses the local OEM code page; the process names are ASCII.
         text = proc.stdout.decode("mbcs" if os.name == "nt" else "utf-8", errors="replace")
         found = set()
-        for line in csv.reader(text.splitlines()):
-            if line:
-                name = line[0].strip().lower()
-                if name.endswith(".exe"):
-                    found.add(name)
-        return found
-    except (OSError, subprocess.TimeoutExpired):
+        for line in csv.reader(text.splitlines(), strict=True):
+            if not line or not any(part.strip() for part in line):
+                continue
+            # tasklist /FO CSV /NH always emits image, PID, session name,
+            # session number and memory. Empty/localized error output is not
+            # evidence that every application is closed.
+            if len(line) != 5 or not line[1].strip().isdigit() or not line[3].strip().isdigit():
+                return None
+            name = line[0].strip().casefold()
+            if not name or any(ord(char) < 32 for char in name):
+                return None
+            if name.endswith(".exe"):
+                found.add(name)
+        return found if found else None
+    except (OSError, subprocess.TimeoutExpired, csv.Error):
         return None
 
 
@@ -439,6 +493,9 @@ def iter_eligible_files(target: Target, cutoff: float, metrics: Counters,
                 toolkit_contains_or_is_inside(folder) or is_project_directory(folder)):
             metrics.skipped_special += 1
             continue
+        if target.group.startswith("unity-") and unity_project_directory(folder):
+            metrics.skipped_special += 1
+            continue
         try:
             with os.scandir(folder) as scanned:
                 for entry in scanned:
@@ -450,7 +507,8 @@ def iter_eligible_files(target: Target, cutoff: float, metrics: Counters,
                             metrics.skipped_special += 1
                             continue
                         if stat.S_ISDIR(info.st_mode):
-                            if (is_preserved_temp_subtree(target, entry.name) or
+                            if (target.file_names or is_preserved_temp_subtree(target, entry.name) or
+                                    (target.group.startswith("unity-") and unity_project_directory(path)) or
                                     (target.group in ("user-temp", "system-temp") and
                                      (toolkit_contains_or_is_inside(path) or
                                       is_project_directory(path)))):
@@ -458,7 +516,7 @@ def iter_eligible_files(target: Target, cutoff: float, metrics: Counters,
                             else:
                                 dirs.append(path)
                         elif stat.S_ISREG(info.st_mode):
-                            if protected_temp_file(target, path):
+                            if not target_file_permitted(target, path) or protected_temp_file(target, path):
                                 metrics.skipped_special += 1
                                 continue
                             if info.st_mtime > cutoff:
@@ -533,7 +591,12 @@ def clean_target(target: Target, age_days: int, processes: Optional[set[str]]) -
     if not target.path.is_dir():
         result.status = "不存在：已跳过"
         return result
-    if target.process_name and (processes is None or target.process_name in processes):
+    # Unity deletion is available only through the Studio's frozen preview,
+    # explicit offline preference and single-use DELETE confirmation.
+    if target.group.startswith("unity-"):
+        result.status = "Unity 专项请在 C-Scan Studio 中扫描、预览并确认；命令行不直接删除"
+        return result
+    if process_blocks_target(target, processes):
         result.status = "相关程序仍运行/进程检测失败：未清理"
         return result
     cutoff = time.time() - age_days * 86400
@@ -544,7 +607,7 @@ def clean_target(target: Target, age_days: int, processes: Optional[set[str]]) -
                     not ancestors_clear(path)):
                 result.metrics.skipped_special += 1
                 continue
-            if protected_temp_file(target, path):
+            if not target_file_permitted(target, path) or protected_temp_file(target, path):
                 result.metrics.skipped_special += 1
                 continue
             latest = os.lstat(path)
@@ -577,7 +640,11 @@ def elevate(args: Sequence[str]) -> bool:
     """Run the current script with UAC; never run arbitrary shell strings."""
     try:
         # Uses argv quoting correctly for spaces and Chinese filesystem paths.
-        params = subprocess.list2cmdline([str(Path(__file__).resolve()), *args, "--hold"])
+        # A frozen sys.executable is CScanStudio.exe, whose restricted helper
+        # dispatcher requires -I. A normal Python interpreter keeps its original
+        # script invocation so the source distribution behaves as before.
+        helper_prefix = ["-I"] if getattr(sys, "frozen", False) else []
+        params = subprocess.list2cmdline([*helper_prefix, str(Path(__file__).resolve()), *args, "--hold"])
         shell_exec = ctypes.windll.shell32.ShellExecuteW
         shell_exec.restype = ctypes.c_void_p
         code = shell_exec(None, "runas", sys.executable, params, None, 1)
@@ -973,6 +1040,12 @@ def summary(results: Iterable[Result], cleaning: bool = False) -> Tuple[int, int
 
 
 def cli(argv: Optional[Sequence[str]] = None) -> int:
+    # Isolated startup ignores PYTHONIOENCODING. Windows captured console
+    # streams can therefore start as cp1252, which cannot print Chinese help.
+    # StringIO/test-host streams have no reconfigure method and remain usable.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         description="Windows C 盘缓存清理 / Python-Conda 环境自动发现（默认仅扫描）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
