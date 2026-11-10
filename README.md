@@ -1,6 +1,6 @@
 # C-Scan Studio v3.7.0-beta.1 / Unity 专项缓存与 Windows 空间管理
 
-**Windows 10 / 11** · 单一启动 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
+**Windows 10 / 11** · 便携 EXE / 源码 BAT · 本地浏览器界面 · 可选 Everything 索引 · 零额外 Python pip 依赖 · 开源可审计
 
 > 这是磁盘扫描与缓存清理工具，不是杀毒软件，也没有“官方无毒认证”。
 > 默认只有只读扫描；清理需选中白名单项目、预览提示并键入 `DELETE`。
@@ -69,11 +69,11 @@
 
 ## 1. 开始使用
 
-1. 下载此版本的 `C_Scan_Studio_v3.7.0-beta.1_Source.zip`（独立版本；通过 CI 后 GitHub 会生成自己的发行附件），使用与实际下载文件对应的 SHA-256 核对，**不能套用 v3.4 或 v3.3 的文件指纹或 VirusTotal 结论**。
-2. 解压到例如 `D:\C_Scan_Studio_v3.7.0-beta.1`，不要直接在 ZIP 内运行。
-3. 双击根目录唯一的 **`00_启动C-Scan智能清理与安全中心.bat`**。
-4. 已有 Python/Anaconda/Miniconda 时直接复用；未找到兼容的 Python 时会按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
-5. 浏览器自动打开 **127.0.0.1** 本地控制台。检查缓存清单和风险颜色；是否清理由你决定。
+1. 普通使用选择 `C_Scan_Studio_v3.7.0-beta.1_Windows_x64.zip`，开发和审阅源码选择 `C_Scan_Studio_v3.7.0-beta.1_Source.zip`。Windows 构建通过后，便携包位于对应 Actions 运行的附件中；正式发行需另行发布。使用与实际下载文件对应的 SHA-256 核对，**不能套用旧版的文件指纹或 VirusTotal 结论**。
+2. 将整个压缩包解压到例如 `D:\C_Scan_Studio_v3.7.0-beta.1`，不要直接在 ZIP 内运行。
+3. **EXE 包双击 `CScanStudio.exe`**，并保留旁边的 `_internal` 文件夹；无需另装 Python。源码包双击 **`00_启动C-Scan智能清理与安全中心.bat`**。
+4. 源码启动器会复用已有 Python/Anaconda/Miniconda；未找到兼容的 Python 时，按固定 SHA-256 下载官方便携 CPython（需要联网，下载失败则不会清理）。不会修改系统 PATH。
+5. 浏览器自动打开 **127.0.0.1** 本地控制台。进入 **Unity 专项**，保持默认离线保护，先扫描并检查各项路径与占用。清理需手动选择、预览并确认。
 
 ## 2. 统一界面，原 BAT 功能如何找
 
@@ -108,7 +108,7 @@
 ## 4. 朋友如何独立验证
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.5.2-beta.1_Source.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath '.\C_Scan_Studio_v3.7.0-beta.1_Windows_x64.zip'
 ```
 
 将 SHA-256 与 GitHub Releases 的发行信息或独立渠道公开的校验值核对。检查 `Actions` 自动测试、`Security` CodeQL 检查、发行附件的 GitHub Artifact Attestation；使用 Microsoft Defender 或 VirusTotal / MetaDefender / Jotti 主动检测发行包。**任何单项通过都不等于软件已认证无毒。**

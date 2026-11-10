@@ -26,11 +26,15 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
+
+# ``python -I script.py`` omits the script directory from its import path.
+# Add only this bundled application's directory, never the caller's cwd.
+TOOLKIT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(TOOLKIT_DIR))
 import Unity_Cache_Manager as unity_cache
 
 VERSION = "2.3.0"
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-TOOLKIT_DIR = Path(__file__).resolve().parent
 GROUPS = {
     "user-temp": ("用户临时文件", 14),
     "wer": ("已归档 Windows 错误报告", 14),

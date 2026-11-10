@@ -66,6 +66,18 @@ class LauncherBehaviorTests(unittest.TestCase):
                 self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
                 self.assertIn(marker, completed.stdout)
 
+    def test_isolated_source_cleaner_imports_its_bundled_unity_module(self):
+        with tempfile.TemporaryDirectory(prefix="cscan unrelated source cwd ") as temporary:
+            # An unrelated cwd must not supply the cleaner's Unity dependency.
+            (Path(temporary) / "Unity_Cache_Manager.py").write_text(
+                "raise RuntimeError('cwd dependency must not run')\n", encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, "-I", "-B", str(ROOT / "C_Drive_Cleanup.py"), "--help"],
+                cwd=temporary, capture_output=True, text=True, encoding="utf-8",
+                timeout=20, check=False)
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertIn("--scan", completed.stdout)
+
     def test_share_helper_uses_its_real_entry_and_refuses_missing_inputs(self):
         import Share_Offline_Bundle as share
         with tempfile.TemporaryDirectory() as temporary:
