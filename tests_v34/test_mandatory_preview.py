@@ -6,6 +6,7 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,8 @@ class MandatoryPreviewTests(unittest.TestCase):
             {"id":"red", "name":"synthetic red", "path":r"C:\Fake\system", "risk":"red",
              "priority":"P4", "size":1, "count":1, "age_days":30, "allowed":False},
         ]
-        self.manager.targets = {'one': object(), 'two': object(), 'red': object()}
+        self.manager.targets = {key: SimpleNamespace(group='pip')
+                                for key in ('one', 'two', 'red')}
         self.manager.snapshots = {
             'one': [app.Snapshot(r'C:\Fake\green\a.tmp', 5, 10), app.Snapshot(r'C:\Fake\green\b.tmp', 7, 10)],
             'two': [app.Snapshot(r'C:\Fake\amber\c.cache', 7, 10)],

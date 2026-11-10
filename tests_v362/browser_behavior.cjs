@@ -153,7 +153,7 @@ async function runTest(title, fn) {
     const evt=h.document.emit('keydown',{key:'k',ctrlKey:true,target:opener});
     assert.equal(evt.defaultPrevented,true);
     assert.equal(h.get('quicknav-dialog').open,true);
-    assert.equal(h.get('quicknav-list').children.length,7);
+    assert.equal(h.get('quicknav-list').children.length,8);
     h.get('quicknav-input').value='查重';
     h.get('quicknav-input').emit('input');
     assert.equal(h.get('quicknav-list').children.length,1);

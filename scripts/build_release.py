@@ -12,13 +12,13 @@ import sys
 import zipfile
 from pathlib import Path
 
-VERSION = '3.6.0-beta.4'
+VERSION = '3.7.0-beta.1'
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
     '00_启动C-Scan智能清理与安全中心.bat', 'Advanced_Disk_Studio.py',
     'C_Drive_Cleanup.py', 'Everything_Official_Manager.py',
-    'Drive_Inspector.py',
+    'Drive_Inspector.py', 'Unity_Cache_Manager.py', 'CScan_Launcher.py',
     'Security_Audit.py', 'Share_Offline_Bundle.py', 'Unified_Tools.py',
     'LICENSE', 'NOTICE.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md',
     '.gitignore', '.gitattributes',
@@ -26,7 +26,7 @@ SOURCE_NAMES = frozenset({
 SOURCE_DIRS = frozenset({
     'internal', 'ui', 'LICENSES', 'Tools', 'Runtime_Offline',
     'docs', 'tests', 'tests_v3', 'tests_v31', 'tests_v32', 'tests_v33',
-    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362', 'tests_v363', 'tests_v364',
+    'scripts', '.github', 'tests_v34', 'tests_v35', 'tests_v352', 'tests_v36', 'tests_v362', 'tests_v363', 'tests_v364', 'tests_v37',
 })
 EXCLUDES = frozenset({
     '.git', '__pycache__', '_runtime', 'Installer_Files', 'Official_Offline',
@@ -36,7 +36,7 @@ ALLOWED_SUFFIX = frozenset({'.py', '.html', '.md', '.txt', '.cmd', '.bat',
                             '.yml', '.yaml', '.json', '.ini', '.csv', '.png', '.ps1', '.js', '.cjs'})
 DANGEROUS_SUFFIX = frozenset({'.exe', '.dll', '.msi', '.zip', '.whl', '.pfx',
                               '.pem', '.key', '.env', '.conda', '.p12'})
-DATE = (2026, 10, 31, 0, 0, 0)
+DATE = (2026, 11, 10, 0, 0, 0)
 
 
 def eligible(root: Path) -> list[tuple[str, bytes]]:

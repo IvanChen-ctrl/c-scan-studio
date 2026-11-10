@@ -41,8 +41,9 @@ import Everything_Official_Manager as vendor
 import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
+import Unity_Cache_Manager as unity_cache
 
-VERSION = "3.6.0-beta.4"
+VERSION = "3.7.0-beta.1"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
 REPARSE = 0x0400
 MIB = 1024 ** 2
@@ -67,6 +68,7 @@ POLICY = {
     "system-temp": ("orange", "Windows 系统 Temp", "涉及管理员权限和服务占用；请使用 Windows 官方清理。"),
     "system-wer": ("orange", "系统级归档错误报告", "可能需要管理员权限；请使用 Windows 官方清理。"),
 }
+POLICY.update(unity_cache.UNITY_POLICY)
 RISK_TEXT = {"green": "绿色 · 低", "amber": "黄色 · 中", "orange": "橙色 · 高", "red": "红色 · 极高", "gray": "灰色 · 保护"}
 RISK_ORDER = {"green": 0, "amber": 1, "orange": 2, "red": 3, "gray": 4}
 AUTOCLEAN_RISKS = frozenset(("green", "amber"))
@@ -85,6 +87,7 @@ ADVISORIES = [
     {"name": "WinSxS / Windows Installer / DriverStore", "risk": "red", "priority": "P4", "reason": "禁止直接删除；请通过 Windows 存储设置和 DISM 官方维护。"},
     {"name": "回收站 / Windows.old / Windows 更新", "risk": "orange", "priority": "P3", "reason": "建议通过 Windows 设置 → 存储 → 临时文件检查，可能失去恢复能力。"},
     {"name": "WSL / Docker / Hyper-V 的 VHDX", "risk": "red", "priority": "P4", "reason": "磁盘镜像可能承载系统和项目数据；只能用对应工具管理。"},
+    {"name": "Unity 工程 / 许可证 / Android 工具链", "risk": "gray", "priority": "P4", "reason": "Assets、Packages、ProjectSettings、许可证、SDK/NDK/OpenJDK 均受保护；全局缓存请进入 Unity 专项查看。"},
 ]
 
 
@@ -109,6 +112,10 @@ def classify_large_file(path):
     normalized = str(path).replace("/", "\\").casefold()
     suffix = Path(path).suffix.casefold()
     name = Path(path).name.casefold()
+    if (any(seg in normalized for seg in ("\\assets\\", "\\projectsettings\\", "\\usersettings\\",
+                                          "\\unity\\licenses\\", "\\playbackengines\\", "\\.android\\")) or
+            suffix in (".unity", ".prefab", ".meta", ".ulf") or name == "unityentitlementlicense.xml"):
+        return "gray", "Unity 工程、许可证或 Android 工具链：保护内容；缓存请使用 Unity 专项。"
     protected_segments = ("\\huggingface\\", "\\checkpoints\\", "\\models\\", "\\lora\\",
                           "\\anaconda", "\\miniconda", "\\miniforge", "\\envs\\", "\\.venv\\",
                           "\\venv\\", "\\nvidia gpu computing toolkit\\", "\\site-packages\\")
@@ -241,6 +248,9 @@ class Snapshot:
     path: str
     size: int
     mtime_ns: int
+    device: Optional[int] = None
+    inode: Optional[int] = None
+    ctime_ns: Optional[int] = None
 
 
 def protected_temp_extra(target, path):
@@ -276,6 +286,9 @@ def safe_scan_target(target, age_days, stop, deadline, max_entries=180000):
                 engine.toolkit_contains_or_is_inside(folder) or engine.is_project_directory(folder)):
             outcome["skipped"] += 1
             continue
+        if target.group.startswith("unity-") and engine.unity_project_directory(folder):
+            outcome["skipped"] += 1
+            continue
         try:
             with os.scandir(folder) as entries:
                 for entry in entries:
@@ -292,14 +305,24 @@ def safe_scan_target(target, age_days, stop, deadline, max_entries=180000):
                             outcome["skipped"] += 1
                             continue
                         if stat.S_ISDIR(info.st_mode):
-                            if (engine.is_preserved_temp_subtree(target, entry.name) or
+                            if (target.file_names or engine.is_preserved_temp_subtree(target, entry.name) or
+                                    (target.group.startswith("unity-") and engine.unity_project_directory(path)) or
                                     (target.group in ("user-temp", "system-temp") and
                                      (engine.toolkit_contains_or_is_inside(path) or engine.is_project_directory(path)))):
                                 outcome["skipped"] += 1
                             else:
                                 dirs.append(path)
                         elif stat.S_ISREG(info.st_mode):
-                            if engine.protected_temp_file(target, path) or protected_temp_extra(target, path):
+                            if (not engine.target_file_permitted(target, path) or
+                                    engine.protected_temp_file(target, path) or protected_temp_extra(target, path)):
+                                outcome["skipped"] += 1
+                                continue
+                            # On Windows DirEntry.stat may not populate the
+                            # file index. A fresh lstat binds the preview to
+                            # the actual file identity, not just size/mtime.
+                            info = os.lstat(path)
+                            if (not stat.S_ISREG(info.st_mode) or
+                                    (getattr(info, "st_file_attributes", 0) or 0) & REPARSE):
                                 outcome["skipped"] += 1
                                 continue
                             if info.st_mtime > cutoff:
@@ -307,13 +330,16 @@ def safe_scan_target(target, age_days, stop, deadline, max_entries=180000):
                             outcome["count"] += 1
                             outcome["bytes"] += max(0, int(info.st_size))
                             snapshots.append(Snapshot(str(path), max(0, int(info.st_size)),
-                                                      int(info.st_mtime_ns)))
+                                                      int(info.st_mtime_ns), int(info.st_dev),
+                                                      int(info.st_ino), int(info.st_ctime_ns)))
                         else:
                             outcome["skipped"] += 1
                     except OSError:
                         outcome["errors"] += 1
         except OSError:
             outcome["errors"] += 1
+    if outcome["errors"]:
+        outcome.update(complete=False, state="部分路径读取失败：仅供查看，请重新扫描")
     return outcome, snapshots
 
 
@@ -322,8 +348,17 @@ def still_safe_snapshot(target, item, age_days):
     path = Path(item.path)
     if not target.valid() or not engine.strictly_within(path, target.path) or not engine.ancestors_clear(path):
         return False
-    if engine.protected_temp_file(target, path) or protected_temp_extra(target, path):
+    if (not engine.target_file_permitted(target, path) or
+            engine.protected_temp_file(target, path) or protected_temp_extra(target, path)):
         return False
+    if target.group.startswith("unity-"):
+        folder = path.parent
+        while engine.strictly_within(folder, target.path) or engine.same_path(folder, target.path):
+            if engine.unity_project_directory(folder):
+                return False
+            if engine.same_path(folder, target.path) or folder.parent == folder:
+                break
+            folder = folder.parent
     if target.group in ("user-temp", "system-temp"):
         folder = path.parent
         while engine.strictly_within(folder, target.path) or engine.same_path(folder, target.path):
@@ -342,6 +377,10 @@ def still_safe_snapshot(target, item, age_days):
     if (int(latest.st_size) != item.size or int(latest.st_mtime_ns) != item.mtime_ns or
             latest.st_mtime > time.time() - int(age_days) * 86400):
         return False
+    if ((item.device is not None and int(latest.st_dev) != item.device) or
+            (item.inode is not None and int(latest.st_ino) != item.inode) or
+            (item.ctime_ns is not None and int(latest.st_ctime_ns) != item.ctime_ns)):
+        return False
     return True
 
 
@@ -351,15 +390,15 @@ def clean_snapshot_target(target, snapshots, age_days, stop, running):
     removed_bytes = 0
     errors = 0
     skipped = 0
-    if target.process_name and (running is None or target.process_name.lower() in running):
+    if engine.process_blocks_target(target, running):
         return {"deleted": 0, "bytes": 0, "errors": 0, "skipped": len(snapshots), "state": "相关程序仍运行：跳过"}
     for idx, item in enumerate(snapshots):
         if stop.is_set():
             return {"deleted": count, "bytes": removed_bytes, "errors": errors,
                     "skipped": skipped, "state": "用户已中止"}
-        if idx % 100 == 0 and target.process_name:
+        if idx % 100 == 0 and engine.required_processes(target):
             now = engine.active_processes()
-            if now is None or target.process_name.lower() in now:
+            if engine.process_blocks_target(target, now):
                 skipped += len(snapshots) - idx
                 return {"deleted": count, "bytes": removed_bytes, "errors": errors,
                         "skipped": skipped, "state": "程序启动或进程状态不明：已停止"}
@@ -388,6 +427,9 @@ class Analyzer:
         self.items = []
         self.snapshots = {}
         self.scan_complete = False
+        self.preserve_offline = True
+        self.unity = {"items": [], "settings": [], "guidance": [],
+                      "state": "未扫描", "complete": False, "preserve_offline": True}
         self.inventory = inspector.empty_report()
         # Four-key read-only indexes are built once per immutable scan snapshot.
         # Never exposed via /api/state or included in downloadable reports.
@@ -543,6 +585,7 @@ class Analyzer:
                     "items": items, "large_files": list(self.large_files),
                     "large_info": dict(self.large_info), "scan_complete": self.scan_complete,
                     "inventory": inventory_preview, "drive_choices": drives,
+                    "unity": dict(self.unity), "preserve_offline": self.preserve_offline,
                     "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if self.es_exe else "没有经过 SHA-256 校验的官方 ES CLI；不会运行 PATH 中的未知 es.exe，采用限时扫描"),
                     "everything": vendor.status(HERE),
                     "busy": self.phase in ("scanning", "large", "cleaning", "setup", "inventory"),
@@ -567,6 +610,9 @@ class Analyzer:
                 self.targets = {}
                 self.snapshots = {}
                 self.scan_complete = False
+                self.unity = {"items": [], "settings": [], "guidance": [],
+                              "state": "未扫描", "complete": False,
+                              "preserve_offline": self.preserve_offline}
             elif phase == "inventory":
                 self.inventory = inspector.empty_report()
                 self._classification_cache_source = None
@@ -620,13 +666,24 @@ class Analyzer:
                 self.message = "官方 Everything 准备失败：" + str(exc)[:170]
             self._record(self.message)
 
-    def start_scan(self, mode="fast"):
-        if mode not in ("fast", "complete"):
+    def start_scan(self, mode="fast", preserve_offline=True):
+        if mode not in ("fast", "complete", "unity"):
             return False, "不支持的扫描模式"
-        return self._start("scanning", "正在读取安全缓存白名单...", lambda: self._scan(mode))
+        if not isinstance(preserve_offline, bool):
+            return False, "保留离线包缓存选项必须为布尔值"
+        return self._start("scanning", "正在读取安全缓存白名单...",
+                           lambda: self._scan(mode, preserve_offline))
 
-    def _scan(self, mode):
+    def _scan(self, mode, preserve_offline=True):
         targets = engine.make_targets()
+        if mode == "unity":
+            targets = [target for target in targets if target.group.startswith("unity-")]
+        else:
+            # Large Unity caches have their own opt-in scan budget and offline
+            # preference; they must not delay the ordinary quick scan.
+            targets = [target for target in targets if not target.group.startswith("unity-")]
+        with self.lock:
+            self.preserve_offline = preserve_offline
         profiles = sorted(targets, key=lambda t: (RISK_ORDER.get(POLICY.get(t.group, ("gray",))[0], 9), t.name))
         disk = self._disk()
         max_seconds = 55 if mode == "fast" else 240
@@ -648,13 +705,15 @@ class Analyzer:
             age_days = engine.GROUPS[target.group][1]
             result, shots = safe_scan_target(target, age_days, self.cancel, deadline, max_entries)
             key = hashlib.sha256((target.group + "|" + str(target.path).casefold()).encode("utf-8")).hexdigest()[:24]
-            process_blocked = bool(target.process_name and
-                                   (processes is None or target.process_name.lower() in processes))
+            process_blocked = engine.process_blocks_target(target, processes)
+            offline_blocked = bool(preserve_offline and target.group.startswith("unity-upm"))
             priority = compute_priority(risk, result["bytes"], disk["free"], disk["total"])
             allowed = (risk in AUTOCLEAN_RISKS and result["complete"] and result["count"] > 0
-                       and not process_blocked and not self.cancel.is_set())
+                       and not process_blocked and not offline_blocked and not self.cancel.is_set())
             if process_blocked:
                 result["state"] = "程序正在运行 / 进程检测不可用；禁用清理"
+            elif offline_blocked:
+                result["state"] = "保留离线包缓存：已保护；取消勾选后重新专项扫描才可选择"
             visible.append({"id": key, "group": target.group, "name": target.name,
                             "path": str(target.path), "risk": risk, "risk_text": RISK_TEXT[risk],
                             "priority": priority, "size": result["bytes"], "count": result["count"],
@@ -662,11 +721,18 @@ class Analyzer:
                             "errors": result["errors"], "complete": result["complete"],
                             "state": result["state"], "age_days": age_days,
                             "allowed": allowed, "note": note, "reason": why,
-                            "process_blocked": process_blocked})
+                            "process_blocked": process_blocked, "offline_blocked": offline_blocked})
             working[key] = target
             snapshots[key] = shots
             with self.lock:
                 self.items = list(visible)
+        if mode == "unity":
+            with self.lock:
+                self.message = "正在只读统计 Unity / Bee / Asset Store / Gradle 的实际缓存位置..."
+            audit = unity_cache.audit(stop=self.cancel, deadline=time.monotonic() + 45)
+            audit["preserve_offline"] = preserve_offline
+            with self.lock:
+                self.unity = audit
         fully_scanned = (not self.cancel.is_set() and len(visible) == len(profiles)
                          and all(row["complete"] for row in visible))
         with self.lock:
@@ -682,6 +748,10 @@ class Analyzer:
             # truncation, individually completed targets remain eligible.
             if self.cancel.is_set():
                 self.items = [dict(r, allowed=False) for r in self.items]
+            if mode == "unity":
+                self.message = ("Unity 专项扫描完成。请核对路径、所在盘及清理代价，再手动选择缓存。"
+                                if fully_scanned and self.unity.get("complete", False) else
+                                "Unity 专项已结束，部分目录未完整统计；只可预览完整且未被占用的白名单缓存。")
         self._record(self.message)
         self._auto_report("scan")
 
@@ -784,6 +854,8 @@ class Analyzer:
             row = indexed[key]
             if not row["allowed"] or row["risk"] not in AUTOCLEAN_RISKS:
                 return None, f"该项目不允许清理：{row['name']}"
+            if self.preserve_offline and self.targets[key].group.startswith("unity-upm"):
+                return None, "离线包缓存保护已开启；请修改选项并重新专项扫描。"
             shots = self.snapshots.get(key, [])
             if len(shots) != row["count"] or not shots:
                 return None, "文件清单与扫描计数不一致，请重新扫描。"
@@ -1038,6 +1110,7 @@ class Analyzer:
                 "large_files": state["large_files"], "large_info": state["large_info"],
                 "advisories": ADVISORIES, "cleanup": state["last_cleanup"],
                 "inventory": self.inventory,
+                "unity": state["unity"], "preserve_offline": self.preserve_offline,
                 "warnings": ["所有空间数值是逻辑大小，不保证等于磁盘实际释放量。",
                              "不完整/取消扫描的结果不代表 C 盘全量数据。",
                              "大文件列表仅定位，绝不提供删除操作。",
@@ -1047,7 +1120,8 @@ class Analyzer:
     def summary(self):
         with self.lock:
             ready = [x for x in self.items if x["allowed"]]
-            green = [x for x in ready if x["risk"] == "green"]
+            green = [x for x in ready if x["risk"] == "green" and
+                     not x.get("group", "").startswith("unity-")]
             return {"recommended_bytes": sum(x["size"] for x in green),
                     "optional_bytes": sum(x["size"] for x in ready if x["risk"] == "amber"),
                     "recommended_count": len(green), "optional_count": len(ready) - len(green),
@@ -1088,6 +1162,12 @@ def csv_bytes(report):
         row((rec["name"], rec["priority"], RISK_TEXT[rec["risk"]], rec["size"],
                       rec["count"], "是" if rec["complete"] else "否",
                       "是" if rec["allowed"] else "否", rec["path"], rec["reason"]))
+    row([])
+    row(("Unity 专项诊断（只读）", "所在盘", "逻辑字节", "文件数", "完整扫描", "路径", "状态", "处理建议"))
+    for rec in (report.get("unity") or {}).get("items", []):
+        row((rec.get("name", ""), rec.get("drive", ""), rec.get("bytes", 0),
+             rec.get("count", 0), "是" if rec.get("complete") else "否", rec.get("path", ""),
+             rec.get("state", ""), rec.get("reason", "")))
     row([])
     row(("大文件（仅查看，不提供删除）", "优先级", "风险颜色", "逻辑字节", "修改时间", "文件路径", "说明"))
     for rec in report["large_files"]:
@@ -1233,7 +1313,7 @@ class LocalHandler(BaseHTTPRequestHandler):
             return self._answer(400, {"error": "JSON 无效"})
         manager = self.server.analyzer
         if parsed.path == "/api/scan":
-            ok, msg = manager.start_scan(body.get("mode", "fast"))
+            ok, msg = manager.start_scan(body.get("mode", "fast"), body.get("preserve_offline", True))
         elif parsed.path == "/api/large":
             ok, msg = manager.start_large(body.get("min_mb", 512))
         elif parsed.path == "/api/inspect":
@@ -1294,7 +1374,7 @@ def main(argv=None):
     http.toolbox = Toolbox(log=analyzer._record)
     url = f"http://127.0.0.1:{http.server_port}/?t={token}"
     print("=" * 70)
-    print("C-Scan Studio v3.5.2-beta.1 - Windows 本地多磁盘智能分析器")
+    print(f"C-Scan Studio v{VERSION} - Windows 本地磁盘分析与 Unity 缓存管理")
     print("只在本机 127.0.0.1 监听，默认仅读取数据。")
     print("请勿公开包含随机会话密钥的地址。"); print(url)
     print("退出方式：关闭此 BAT 控制台窗口或按 Ctrl+C。")
