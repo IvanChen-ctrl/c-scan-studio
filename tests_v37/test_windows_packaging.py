@@ -78,6 +78,28 @@ class LauncherBehaviorTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertIn("--scan", completed.stdout)
 
+    def test_source_cleaner_help_handles_legacy_pipe_encoding_and_stringio(self):
+        import C_Drive_Cleanup as engine
+        raw_output = io.BytesIO()
+        with io.TextIOWrapper(raw_output, encoding="cp1252", errors="strict") as output:
+            with mock.patch.object(engine.sys, "stdout", output), \
+                    mock.patch.object(engine.sys, "stderr", io.StringIO()):
+                with self.assertRaises(SystemExit) as stopped:
+                    engine.cli(["--help"])
+            output.flush()
+            decoded = raw_output.getvalue().decode("utf-8")
+        self.assertEqual(stopped.exception.code, 0)
+        self.assertIn("Windows C 盘缓存清理", decoded)
+        self.assertIn("--scan", decoded)
+
+        output = io.StringIO()
+        with mock.patch.object(engine.sys, "stdout", output), \
+                mock.patch.object(engine.sys, "stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as stopped:
+                engine.cli(["--help"])
+        self.assertEqual(stopped.exception.code, 0)
+        self.assertIn("Windows C 盘缓存清理", output.getvalue())
+
     def test_share_helper_uses_its_real_entry_and_refuses_missing_inputs(self):
         import Share_Offline_Bundle as share
         with tempfile.TemporaryDirectory() as temporary:

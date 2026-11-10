@@ -1040,6 +1040,12 @@ def summary(results: Iterable[Result], cleaning: bool = False) -> Tuple[int, int
 
 
 def cli(argv: Optional[Sequence[str]] = None) -> int:
+    # Isolated startup ignores PYTHONIOENCODING. Windows captured console
+    # streams can therefore start as cp1252, which cannot print Chinese help.
+    # StringIO/test-host streams have no reconfigure method and remain usable.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         description="Windows C 盘缓存清理 / Python-Conda 环境自动发现（默认仅扫描）",
         formatter_class=argparse.RawDescriptionHelpFormatter,

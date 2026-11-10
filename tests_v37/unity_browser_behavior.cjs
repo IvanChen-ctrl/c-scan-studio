@@ -5,7 +5,16 @@ const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const html = fs.readFileSync(path.join(__dirname, '..', 'ui', 'dashboard.html'), 'utf8');
-const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+// This is a trusted repository template, not an HTML sanitizer. Reject changes
+// to its single inline-script structure before executing the exact body.
+assert.equal(html.split('<script>').length, 2, 'dashboard must have one exact script opener');
+assert.equal(html.split('</script>').length, 2, 'dashboard must have one exact script closer');
+assert.equal(html.toLowerCase().split('<script').length, 2, 'additional script tags are unsupported');
+assert.equal(html.toLowerCase().split('</script').length, 2, 'additional script closers are unsupported');
+const scriptStart = html.indexOf('<script>') + '<script>'.length;
+const scriptEnd = html.indexOf('</script>');
+assert.ok(scriptEnd > scriptStart, 'script closing delimiter must follow its nonempty body');
+const script = html.slice(scriptStart, scriptEnd);
 
 class Element {
   constructor(id, document) {
