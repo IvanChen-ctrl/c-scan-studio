@@ -93,7 +93,8 @@ def self_test():
 Only the disk-capacity/volume providers are replaced with explicit empty fixture
 values. The real Analyzer, LocalHandler, Toolbox and packaged dashboard are used.
 No POST is sent. Scan/cleanup/setup entry points and delete functions fail closed
-if this smoke test accidentally reaches them.
+if this smoke test accidentally reaches them. Windows also exercises the real
+read-only tasklist process guard without recording process names.
 """
     import Advanced_Disk_Studio as studio
     import C_Drive_Cleanup as engine
@@ -173,6 +174,13 @@ if this smoke test accidentally reaches them.
             if status != 403:
                 raise RuntimeError("Unauthenticated state access was not rejected.")
             probes.append({"name": "session_token_required", "http_status": status, "passed": True})
+            if os.name == "nt":
+                processes = engine.active_processes()
+                current_image = Path(sys.executable).name.casefold()
+                if not isinstance(processes, set) or not processes or current_image not in processes:
+                    raise RuntimeError("The Windows process guard could not verify the current executable.")
+                probes.append({"name": "windows_process_guard", "passed": True,
+                               "process_count": len(processes)})
             if forbidden:
                 raise RuntimeError("The smoke test attempted a forbidden action.")
         finally:

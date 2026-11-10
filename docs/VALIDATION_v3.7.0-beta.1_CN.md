@@ -2,7 +2,7 @@
 
 日期：2026-11-10。源码基线：v3.6.0-beta.4 / `8c1dbd89c090c66b1c38b9f349d94242adcacb37`。
 
-本地 Python 回归 **301 PASS / 0 FAIL / 0 SKIP**；Node.js 交互回归 **20 PASS**，合计 **321 项通过**。Python 实际运行版本为 3.12.14；Windows/Python 3.13 结果由对应提交的 GitHub Actions 记录提供。此表是本地执行证据，不冒充 Windows 实机结果。
+本地 Python 回归 **302 PASS / 0 FAIL / 0 SKIP**；Node.js 交互回归 **20 PASS**，合计 **322 项通过**。Python 实际运行版本为 3.12.14；Windows/Python 3.13 结果由对应提交的 GitHub Actions 记录提供。此表是本地执行证据，不冒充 Windows 实机结果。
 
 | 套件 | 测试数 | 退出码（0为成功） | 跳过 |
 | --- | ---: | ---: | ---: |
@@ -18,7 +18,7 @@
 | `tests_v362` | 6 | 0 | 0 |
 | `tests_v363` | 12 | 0 | 0 |
 | `tests_v364` | 8 | 0 | 0 |
-| `tests_v37` | 72 | 0 | 0 |
+| `tests_v37` | 73 | 0 | 0 |
 | `tests_v362/browser_behavior.cjs` | 7 | 0 | 0 |
 | `tests_v37/unity_browser_behavior.cjs` | 13 | 0 | 0 |
 
@@ -32,11 +32,11 @@
 - 读取失败、取消、超限、目录改变和链接跳过不假装完整；权限未知不显示为未找到。
 - Windows DirEntry 零文件身份回归，硬链接/重叠路径去重及跨盘统计。
 - 配置只输出cacheRoot，registry凭据不进入诊断报告。
-- Windows便携包入口、资源路径、辅助脚本分发与禁止任意Python代码入口。
+- Windows便携包入口、资源路径、辅助脚本分发与禁止任意Python代码入口；冻结版辅助程序提权参数兼容。
 
 ## 启动与包验证
 
-真实本地HTTP自检已通过：首页200、版本与Unity空闲状态200、无会话凭证请求403。自检明确不扫描真实磁盘、不删除文件。
+真实本地HTTP自检已通过：首页200、版本与Unity空闲状态200、无会话凭证请求403。自检明确不扫描真实磁盘、不删除文件。Windows自检额外调用真实tasklist进程守卫，要求能识别自身进程，只输出通过状态及数量，不输出进程名。
 
 四个应用入口/主要模块已通过 Python 3.8 grammar 解析；这不等于已在所有旧Python版本上运行测试。Windows EXE 必须由 Windows Runner 实际构建，冻结态自检成功后才输出便携ZIP；源码自检不能替代EXE构建结果。
 

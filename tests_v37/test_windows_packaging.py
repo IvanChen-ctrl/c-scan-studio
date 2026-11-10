@@ -95,6 +95,27 @@ class LauncherBehaviorTests(unittest.TestCase):
         server.serve_forever.assert_called_once()
         server.server_close.assert_called_once()
 
+    def test_elevation_preserves_source_and_adds_frozen_helper_dispatch(self):
+        import C_Drive_Cleanup as engine
+        import types
+        shell_execute = mock.Mock(return_value=42)
+        fake_api = types.SimpleNamespace(shell32=types.SimpleNamespace(ShellExecuteW=shell_execute))
+        with mock.patch.object(engine.ctypes, "windll", fake_api, create=True), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with mock.patch.object(engine.sys, "frozen", False, create=True):
+                self.assertTrue(engine.elevate(["--dism"]))
+            source_call = shell_execute.call_args.args
+            with mock.patch.object(engine.sys, "frozen", True, create=True):
+                self.assertTrue(engine.elevate(["--dism"]))
+            frozen_call = shell_execute.call_args.args
+        self.assertEqual(shell_execute.call_count, 2)
+        self.assertEqual(source_call[:3], (None, "runas", sys.executable))
+        self.assertEqual(frozen_call[:3], source_call[:3])
+        self.assertFalse(source_call[3].startswith("-I "))
+        self.assertIn("C_Drive_Cleanup.py", source_call[3])
+        self.assertTrue(source_call[3].endswith("--dism --hold"))
+        self.assertEqual(frozen_call[3], "-I " + source_call[3])
+
     def test_symlinked_helper_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -120,8 +141,14 @@ class LauncherBehaviorTests(unittest.TestCase):
         self.assertFalse(data["physical_disk_scan_performed"])
         self.assertFalse(data["deletion_performed"])
         self.assertEqual(data["forbidden_attempts"], [])
-        self.assertEqual({item["name"] for item in data["probes"]},
-                         {"dashboard", "state_version", "unity_idle_data", "session_token_required"})
+        expected = {"dashboard", "state_version", "unity_idle_data", "session_token_required"}
+        if os.name == "nt":
+            expected.add("windows_process_guard")
+            process_probe = next(item for item in data["probes"] if item["name"] == "windows_process_guard")
+            self.assertTrue(process_probe["passed"])
+            self.assertGreater(process_probe["process_count"], 0)
+            self.assertEqual(set(process_probe), {"name", "passed", "process_count"})
+        self.assertEqual({item["name"] for item in data["probes"]}, expected)
 
 
 class PackageBoundaryTests(unittest.TestCase):

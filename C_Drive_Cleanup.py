@@ -636,7 +636,11 @@ def elevate(args: Sequence[str]) -> bool:
     """Run the current script with UAC; never run arbitrary shell strings."""
     try:
         # Uses argv quoting correctly for spaces and Chinese filesystem paths.
-        params = subprocess.list2cmdline([str(Path(__file__).resolve()), *args, "--hold"])
+        # A frozen sys.executable is CScanStudio.exe, whose restricted helper
+        # dispatcher requires -I. A normal Python interpreter keeps its original
+        # script invocation so the source distribution behaves as before.
+        helper_prefix = ["-I"] if getattr(sys, "frozen", False) else []
+        params = subprocess.list2cmdline([*helper_prefix, str(Path(__file__).resolve()), *args, "--hold"])
         shell_exec = ctypes.windll.shell32.ShellExecuteW
         shell_exec.restype = ctypes.c_void_p
         code = shell_exec(None, "runas", sys.executable, params, None, 1)
