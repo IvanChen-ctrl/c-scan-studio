@@ -193,6 +193,44 @@ def available_drives():
         return []
 
 
+def available_network_drives():
+    """Discover mapped Windows network drive letters without scanning their files.
+
+    DRIVE_REMOTE (4) is distinct from fixed/removable local disks. This is
+    metadata-only discovery; no credential, network mount or index changes.
+    """
+    if os.name != 'nt':
+        return []
+    try:
+        import ctypes
+        kernel = ctypes.windll.kernel32
+        mask = int(kernel.GetLogicalDrives())
+        found = []
+        for number in range(3, 26):  # D:..Z:, never the system disk
+            if not mask & (1 << number):
+                continue
+            letter = chr(65 + number)
+            root = f'{letter}:\\'
+            if int(kernel.GetDriveTypeW(ctypes.c_wchar_p(root))) == 4:
+                found.append({'id': f'{letter}:', 'path': root,
+                              'type': '映射网络盘'})
+        return found
+    except (OSError, AttributeError, ValueError, TypeError):
+        return []
+
+
+def select_network_drive(drive_id, drive_choices=None):
+    """Accept only an existing DRIVE_REMOTE mapping, never a caller-supplied UNC."""
+    if not isinstance(drive_id, str) or not WIN_DRIVE.fullmatch(drive_id):
+        raise ValueError('仅可选择当前登录用户已映射的 D: 至 Z: 网络盘。')
+    available = available_network_drives() if drive_choices is None else drive_choices
+    selected = next((row for row in available if row.get('id') == drive_id.upper()
+                     and row.get('type') == '映射网络盘'), None)
+    if selected is None or selected.get('path') != drive_id.upper() + '\\':
+        raise ValueError('网络盘未连接或权限不可见；请刷新列表，并检查 Windows 用户映射。')
+    return Path(selected['path'])
+
+
 def select_drives(ids, drive_choices=None):
     """Reject arbitrary paths (including traversal), duplicate IDs and C:."""
     if not isinstance(ids, list) or not 1 <= len(ids) <= 8:

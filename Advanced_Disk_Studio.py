@@ -15,6 +15,7 @@ import hashlib
 import heapq
 import io
 import json
+import ntpath
 import os
 import re
 import secrets
@@ -151,45 +152,96 @@ def detect_es_exe(tool_dir=HERE, environ=None):
     return None
 
 
-def list_large_everything(es_path, min_bytes, stop=None, limit=180, root="C:\\"):
-    """Search an existing Everything index for large files. Never deletes."""
-    args = [str(es_path), "-path", str(root), "-sort", "size", "-sort-descending",
-            "-n", str(min(int(limit), 250)), "-full-path-and-name", f"size:>{int(min_bytes)}b"]
+def _within_search_root(path, root):
+    """Lexically constrain indexed paths to an absolute local Windows drive.
+
+    Everything is a read-only accelerator, not an authority on allowed paths.
+    A C:\\Data query must never accept C:\\Database or D:\\file results.
+    """
+    target = ntpath.normcase(ntpath.normpath(str(path)))
+    base = ntpath.normcase(ntpath.normpath(str(root)))
+    drive, rest = ntpath.splitdrive(base)
+    file_drive, file_rest = ntpath.splitdrive(target)
+    if not re.fullmatch(r"[a-z]:", drive) or not rest.startswith("\\"):
+        return False
+    if file_drive != drive or not file_rest.startswith("\\"):
+        return False
+    try:
+        return target != base and ntpath.commonpath((target, base)) == base
+    except ValueError:
+        return False
+
+
+def list_large_everything(es_path, min_bytes, stop=None, limit=180, root="C:\\", name_contains=""):
+    """Use ONLY the pre-verified ES path; results remain read-only and capped."""
+    try:
+        threshold = int(min_bytes)
+        max_files = min(int(limit), 250)
+    except (TypeError, ValueError, OverflowError):
+        return None, "Everything 查询参数无效；改用普通扫描。"
+    if threshold < 0 or max_files < 1 or not _within_search_root(ntpath.join(str(root), "cscan-scope-probe"), root):
+        return None, "Everything 搜索范围或门槛无效；改用普通扫描。"
+    if not isinstance(name_contains, str) or len(name_contains) > 120 or any(
+            c in name_contains for c in '\x00\r\n\\/*?<>|:\"'):
+        return None, "文件名关键词无效；仅接受最长 120 字的普通文件名片段。"
+    name_contains = name_contains.strip()
+    if stop is not None and stop.is_set():
+        return [], "已取消"
+    # Ask ES for only regular files, plus one sentinel for a possible result cap.
+    # Official ES supports -a-d, -path, -timeout, -n, and sort by size.
+    args = [str(es_path), "-path", str(root), "-a-d", "-sort", "size",
+            "-sort-descending", "-timeout", "3500", "-n",
+            str(max_files + 1), "-full-path-and-name"]
+    if threshold:
+        args.append(f"size:>={threshold}b")
+    # A literal filename fragment is applied at index-query time, BEFORE the
+    # 180-result cap. Escaping keeps Everything's search grammar out of user text.
+    if name_contains:
+        args.extend(["-regex", re.escape(name_contains)])
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
-        completed = subprocess.run(args, capture_output=True, timeout=16, check=False, creationflags=flags)
+        completed = subprocess.run(args, capture_output=True, timeout=16,
+                                   check=False, creationflags=flags)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, f"Everything CLI 不可用：{exc}"
     if stop is not None and stop.is_set():
         return [], "已取消"
     if completed.returncode != 0:
         return None, f"Everything IPC 返回 {completed.returncode}；将回退到普通扫描。"
-    # ES console text uses the active Windows code page; try UTF-8 first.
     try:
         output = completed.stdout.decode("utf-8-sig")
     except UnicodeDecodeError:
-        output = completed.stdout.decode("mbcs" if os.name == "nt" else "utf-8", errors="replace")
+        output = completed.stdout.decode("mbcs" if os.name == "nt" else "utf-8",
+                                         errors="replace")
     found = []
     seen = set()
     for line in output.splitlines():
+        if stop is not None and stop.is_set():
+            return [], "已取消"
         path = line.strip().strip('"')
-        if not engine.is_c_drive(path) or path.casefold() in seen:
+        if name_contains and name_contains.casefold() not in ntpath.basename(path).casefold():
+            continue
+        if not _within_search_root(path, root):
+            continue
+        normalized = ntpath.normcase(ntpath.normpath(path))
+        if normalized in seen:
             continue
         try:
             info = os.lstat(path)
-            if not stat.S_ISREG(info.st_mode) or ((getattr(info, "st_file_attributes", 0) or 0) & REPARSE):
+            if not stat.S_ISREG(info.st_mode) or (
+                    (getattr(info, "st_file_attributes", 0) or 0) & REPARSE):
                 continue
-            if info.st_size < min_bytes:
+            if info.st_size < threshold:
                 continue
             found.append((str(path), int(info.st_size), float(info.st_mtime)))
-            seen.add(path.casefold())
+            seen.add(normalized)
         except OSError:
+            # Stale index entries are not evidence of a currently readable file.
             continue
     found.sort(key=lambda x: x[1], reverse=True)
-    return found[:limit], "Everything 索引（仅用于大文件定位）"
+    return found[:max_files], f"Everything 索引（只读，最多 {max_files} 项）"
 
-
-def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000, limit=180, tick=None):
+def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000, limit=180, tick=None, name_contains=""):
     """Read-only, time/entry-bounded walk using scandir. No NTFS MFT access."""
     start = time.monotonic()
     stack = [Path(root)]
@@ -206,6 +258,14 @@ def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000
             limited = True
             break
         folder = stack.pop()
+        try:
+            folder_info = os.lstat(folder)
+            if not stat.S_ISDIR(folder_info.st_mode) or (getattr(folder_info, 'st_file_attributes', 0) or 0) & REPARSE:
+                inaccessible += 1
+                continue
+        except OSError:
+            inaccessible += 1
+            continue
         try:
             with os.scandir(folder) as scan:
                 for entry in scan:
@@ -225,7 +285,8 @@ def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000
                             continue
                         if stat.S_ISDIR(info.st_mode):
                             stack.append(Path(entry.path))
-                        elif stat.S_ISREG(info.st_mode) and info.st_size >= min_bytes:
+                        elif (stat.S_ISREG(info.st_mode) and info.st_size >= min_bytes
+                              and (not name_contains or name_contains.casefold() in entry.name.casefold())):
                             point = (int(info.st_size), str(entry.path), float(info.st_mtime))
                             if len(heap) < limit:
                                 heapq.heappush(heap, point)
@@ -239,7 +300,7 @@ def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000
             break
     files = [(path, size, mtime) for size, path, mtime in sorted(heap, reverse=True)]
     return files, {"scanned_entries": checked, "permission_errors": inaccessible,
-                   "complete": not (stopped or limited), "stopped": stopped, "limited": limited,
+                   "complete": not (stopped or limited or inaccessible), "stopped": stopped, "limited": limited,
                    "elapsed_seconds": round(time.monotonic() - start, 2)}
 
 
@@ -437,6 +498,8 @@ class Analyzer:
         self._classification_cache = {}
         self.drive_choices = []
         self.drive_choices_refreshed = 0.0
+        self.network_drives = []
+        self.network_drives_refreshed = 0.0
         self.large_files = []
         self.large_info = {"source": "未扫描", "complete": False, "scanned_entries": 0}
         self.logs = []
@@ -471,9 +534,17 @@ class Analyzer:
                 self.drive_choices_refreshed = time.monotonic()
             return list(self.drive_choices)
 
+    def list_network_drives(self):
+        with self.lock:
+            if time.monotonic() - self.network_drives_refreshed >= 20.0:
+                self.network_drives = inspector.available_network_drives()
+                self.network_drives_refreshed = time.monotonic()
+            return list(self.network_drives)
+
     def refresh_drives(self):
         with self.lock:
             self.drive_choices_refreshed = 0.0
+            self.network_drives_refreshed = 0.0
         return self.list_drives()
 
     def start_inspection(self, drive_ids, min_kb=64):
@@ -567,6 +638,7 @@ class Analyzer:
 
     def state(self):
         drives = self.list_drives()
+        network_drives = self.list_network_drives()
         with self.lock:
             disk = self._disk()
             items = list(self.items)
@@ -585,6 +657,7 @@ class Analyzer:
                     "items": items, "large_files": list(self.large_files),
                     "large_info": dict(self.large_info), "scan_complete": self.scan_complete,
                     "inventory": inventory_preview, "drive_choices": drives,
+                    "network_drives": network_drives,
                     "unity": dict(self.unity), "preserve_offline": self.preserve_offline,
                     "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if self.es_exe else "没有经过 SHA-256 校验的官方 ES CLI；不会运行 PATH 中的未知 es.exe，采用限时扫描"),
                     "everything": vendor.status(HERE),
@@ -755,52 +828,116 @@ class Analyzer:
         self._record(self.message)
         self._auto_report("scan")
 
-    def start_large(self, min_mb=512):
-        try:
-            size = int(min_mb)
-        except (TypeError, ValueError):
-            return False, "无效大文件门槛"
-        if not 128 <= size <= 16384:
-            return False, "门槛必须为 128 到 16384 MiB"
-        return self._start("large", "查找 C 盘大文件（只读）...", lambda: self._large(size))
+    def start_large(self, min_mb=512, drive="C:", network_walk=False, filename=""):
+        if type(network_walk) is not bool:
+            return False, "网络盘慢速扫描选项无效"
+        if not isinstance(drive, str):
+            return False, "盘符无效"
+        drive = drive.upper()
+        if drive == "C:":
+            try:
+                size = int(min_mb)
+                if type(min_mb) is bool:
+                    raise ValueError("bool is not a file size")
+            except (TypeError, ValueError, OverflowError):
+                return False, "无效大文件门槛"
+            if not 128 <= size <= 16384:
+                return False, "C 盘门槛必须为 128 到 16384 MiB"
+            filename = ""  # Preserve the C: large-file-only workflow.
+        else:
+            # Network searches are FILE searches, not cleanup candidates:
+            # Never apply any hidden C: minimum, even for legacy clients.
+            size = 0
+            if not isinstance(filename, str) or len(filename) > 120 or any(
+                    c in filename for c in '\x00\r\n\\/*?<>|:\"'):
+                return False, "文件名关键词无效；请输入普通文件名片段（最多 120 字）。"
+            filename = filename.strip()
+            try:
+                inspector.select_network_drive(drive)  # No arbitrary/UNC paths.
+            except ValueError as exc:
+                return False, str(exc)
+        action = "搜索文件" if drive != "C:" else "查找大文件"
+        return self._start("large", f"{drive} {action}（只读）...",
+                           lambda: self._large(size, drive, network_walk, filename))
 
-    def _large(self, min_mb):
-        size_floor = min_mb * MIB
+    def _large(self, min_mb, drive="C:", network_walk=False, filename=""):
+        network = drive != "C:"
+        size_floor = 0 if network else min_mb * MIB
+        if network:
+            # Re-validate the mapping at use time. Never silently follow a
+            # disconnected/reassigned network letter into an arbitrary path.
+            try:
+                root = inspector.select_network_drive(drive)
+            except ValueError as exc:
+                with self.lock:
+                    self.large_files = []
+                    self.large_info = {"source": "映射网络盘不可用", "complete": False,
+                                       "scanned_entries": 0, "root": drive,
+                                       "network": True, "warning": str(exc)}
+                    self.phase = "idle"
+                    self.message = str(exc)
+                self._record(self.message)
+                return
+        else:
+            root = Path("C:\\")
         result = None
         source = ""
         metadata = {"source": "", "complete": False, "scanned_entries": 0,
-                    "min_mb": min_mb, "warning": ""}
+                    "min_mb": 0 if network else min_mb, "root": drive, "network": network,
+                    "filename": filename if network else "", "warning": ""}
         # Verify SHA-256 again immediately before launching the executable.
         # A previously verified path could have been replaced after startup.
         verified_now = vendor.local_cli_if_verified(HERE) if self.es_exe else None
         if self.es_exe and verified_now and os.path.normcase(str(verified_now)) == os.path.normcase(str(self.es_exe)):
             with self.lock:
                 self.message = "尝试已核验的 Everything 官方索引查询..."
-            result, source = list_large_everything(self.es_exe, size_floor, self.cancel)
+            result, source = list_large_everything(self.es_exe, size_floor, self.cancel,
+                                                    root=str(root), name_contains=filename if network else "")
             if result is not None:
-                metadata["complete"] = not self.cancel.is_set()
+                # An indexed, result-capped lookup cannot prove C: is fully covered.
+                metadata["complete"] = False
                 metadata["source"] = source
                 metadata["scanned_entries"] = len(result)
-                metadata["warning"] = "此列表由 Everything 的索引生成，仅覆盖它实际索引的路径。"
+                metadata["limited"] = len(result) >= 180
+                metadata["warning"] = ((f"{drive} 不限制文件大小；仅显示 Everything 已索引的最多 180 项"
+                                        + (f"、文件名包含“{filename}”" if filename else "；按大小取前 180 项")
+                                        + "。不是网盘完整清单。") if network else
+                                       "仅覆盖 Everything 已索引的文件，最多显示 180 项；不能当作 C 盘完整清单。")
         if self.es_exe and not verified_now:
             source = "Everything ES CLI 文件已变化或校验失败：不会执行。"
             self.es_exe = None
-        if result is None and not self.cancel.is_set():
-            self._record((source or "没有已经通过校验的 Everything ES CLI") + "，使用有预算的 scandir 扫描。")
-            with self.lock:
-                self.message = "普通全盘扫描中（有时间/数量限制）..."
-            root = Path("C:\\")
-            if root.is_dir():
-                result, detail = list_large_bounded(root, size_floor, self.cancel,
-                                                     tick=self._large_tick)
-                metadata.update(detail)
-                metadata["source"] = "os.scandir 限时只读扫描"
-                if not detail["complete"]:
-                    metadata["warning"] = "结果不完整：达到扫描时间/条目上限或已取消，不能视为 C 盘全部大文件。"
-            else:
+        empty_index = result == [] and source.startswith("Everything 索引")
+        if (result is None or empty_index) and not self.cancel.is_set():
+            reason = "Everything 索引未返回可访问的符合条件文件" if empty_index else (source or "没有已经通过校验的 Everything ES CLI")
+            if network and not network_walk:
                 result = []
-                metadata["source"] = "无法访问 C:"
-                metadata["warning"] = "未找到本机 C:\\，此工具只适用于 Windows C 盘。"
+                metadata["source"] = "网络盘索引未就绪"
+                metadata["warning"] = (f"{drive} 未返回有效 Everything 索引结果。Everything 1.4 请在 Tools > Options > Folders "
+                                       f"手动加入 {drive}\\；或勾选网络盘慢速只读扫描后重试。未扫描不代表没有文件。")
+                self._record(metadata["warning"])
+            else:
+                self._record(reason + "，使用有预算的 scandir 扫描核对。")
+                with self.lock:
+                    self.message = "只读目录遍历中（有时间/数量限制）..."
+                if root.is_dir():
+                    scan_limits = ({"max_seconds": 12, "max_entries": 12000}
+                                   if network else {})
+                    result, detail = list_large_bounded(
+                        root, size_floor, self.cancel, tick=self._large_tick,
+                        name_contains=filename if network else "", **scan_limits)
+                    metadata.update(detail)
+                    metadata["source"] = ("网络盘慢速只读遍历（限额）" if network
+                                          else "os.scandir 限时只读扫描")
+                    if network:
+                        metadata["complete"] = False  # Capped to 180, and network I/O can time out.
+                        metadata["warning"] = "网盘不限大小；限额扫描最多展示 180 项，不代表完整的共享目录。"
+                    if not detail["complete"]:
+                        metadata["warning"] = "结果不完整：已取消、达到扫描上限或存在不可读取目录；不能证明没有其他文件。"
+                else:
+                    result = []
+                    metadata["source"] = f"无法访问 {drive}"
+                    metadata["warning"] = (f"{drive} 已断开或不可读取。" if network else
+                                           "未找到本机 C:\\；此工具只适用于 Windows。")
         large = []
         for index, (path, size, mtime) in enumerate(result or []):
             risk, note = classify_large_file(path)
@@ -1315,7 +1452,10 @@ class LocalHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/scan":
             ok, msg = manager.start_scan(body.get("mode", "fast"), body.get("preserve_offline", True))
         elif parsed.path == "/api/large":
-            ok, msg = manager.start_large(body.get("min_mb", 512))
+            ok, msg = manager.start_large(body.get("min_mb", 512),
+                                          body.get("drive", "C:"),
+                                          body.get("network_walk", False),
+                                          body.get("filename", ""))
         elif parsed.path == "/api/inspect":
             ok, msg = manager.start_inspection(body.get("drives", []), body.get("min_kb", 64))
         elif parsed.path == "/api/inspect-refresh":

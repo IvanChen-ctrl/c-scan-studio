@@ -51,6 +51,7 @@ jobs:
         run: |
           node tests_v362/browser_behavior.cjs
           node tests_v37/unity_browser_behavior.cjs
+          node tests_v37/network_no_minimum_browser.cjs
       - name: Build and check source-only release
         shell: bash
         run: |
