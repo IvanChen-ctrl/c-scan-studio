@@ -55,13 +55,13 @@ BUILD_DEPENDENCIES = {
 }
 REQUIRED_RUNTIME_FILES = (
     "CScan_Launcher.py", "Advanced_Disk_Studio.py", "C_Drive_Cleanup.py",
-    "Drive_Inspector.py", "Unity_Cache_Manager.py", "Unified_Tools.py",
+    "Drive_Inspector.py", "Network_Index.py", "Unity_Cache_Manager.py", "Unified_Tools.py",
     "Security_Audit.py", "Share_Offline_Bundle.py", "Everything_Official_Manager.py",
     "ui/dashboard.html", "internal/Install_Full_Python_GUI_Optional.cmd",
     "FILE_INTEGRITY_SHA256.csv", "LICENSE", "README.md",
 )
 HIDDEN_MODULES = (
-    "Advanced_Disk_Studio", "C_Drive_Cleanup", "Drive_Inspector", "Unity_Cache_Manager",
+    "Advanced_Disk_Studio", "C_Drive_Cleanup", "Drive_Inspector", "Network_Index", "Unity_Cache_Manager",
     "Unified_Tools", "Security_Audit", "Share_Offline_Bundle", "Everything_Official_Manager",
 )
 APP_MANIFEST = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

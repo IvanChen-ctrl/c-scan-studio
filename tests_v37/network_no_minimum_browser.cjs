@@ -35,7 +35,7 @@ function harness(){const map=new Map(),requests=[],confirms=[];let approval=fals
  assert.match(html,/id="large-minimum-filter"/);
  assert.match(html,/id="network-file-keyword"/);
  const h=harness();
- h.context.fixture={network_drives:[{id:'O:',type:'映射网络盘'}],large_files:[],large_info:{},busy:false};
+ h.context.fixture={network_drives:[{id:'O:',type:'映射网络盘'}],index_storage_drives:['D:'],large_files:[],large_info:{},busy:false};
  h.run('latest=fixture;renderLarge()');
  h.get('large-drive').value='O:';
  h.run('renderLarge()');
@@ -43,12 +43,14 @@ function harness(){const map=new Map(),requests=[],confirms=[];let approval=fals
  assert.equal(h.get('large-minimum-filter').style.display,'none');
  assert.equal(h.get('network-keyword-control').hidden,false);
  assert.match(h.get('network-drive-help').textContent,/不限文件大小/);
+ assert.equal(h.get('index-storage-drive').value,'D:');
+ assert.equal(h.get('local-index-tools').hidden,false);
  h.get('min-mb').value='4096';
  h.get('network-file-keyword').value='工程 报告.pdf';
  await h.run('startLarge()');
  assert.equal(h.posts().length,1);
  assert.deepEqual(JSON.parse(h.posts()[0].options.body),{
-   min_mb:0,drive:'O:',network_walk:false,filename:'工程 报告.pdf'});
+   min_mb:0,drive:'O:',network_walk:false,filename:'工程 报告.pdf',storage_drive:'D:'});
  assert.ok(!h.posts().some(r=>r.url.includes('/api/clean')));
  console.log('PASS network size minimum hidden; request uses no minimum with filename');
  h.get('large-network-walk').checked=true;
@@ -67,6 +69,17 @@ function harness(){const map=new Map(),requests=[],confirms=[];let approval=fals
  await h.run('startLarge()');
  assert.equal(h.posts().length,3);
  assert.deepEqual(JSON.parse(h.posts()[2].options.body),{
-   min_mb:512,drive:'C:',network_walk:false,filename:''});
+   min_mb:512,drive:'C:',network_walk:false,filename:'',storage_drive:''});
  console.log('PASS C: large-file size minimum remains unchanged');
+ h.get('large-drive').value='O:';h.run('renderLarge()');
+ assert.equal(h.get('index-storage-drive').value,'D:');
+ h.approval(false);await h.run('startNetworkIndex()');
+ assert.equal(h.posts().length,3,'no implicit local network indexing');
+ h.approval(true);await h.run('startNetworkIndex()');
+ assert.equal(h.posts().length,4,'index request requires confirmation');
+ assert.ok(h.posts()[3].url.includes('/api/network-index/start'));
+ assert.deepEqual(JSON.parse(h.posts()[3].options.body),{
+  drive:'O:',storage:'D:',confirm:'INDEX_METADATA_READ_ONLY'});
+ assert.ok(!h.posts().some(r=>r.url.includes('/api/clean')));
+ console.log('PASS explicit network-index consent, local fixed drive and no cleanup');
 })().catch(e=>{console.error(e.stack);process.exitCode=1});
