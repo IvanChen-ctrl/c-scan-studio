@@ -18,6 +18,10 @@
 > 默认只有只读扫描；清理需选中白名单项目、预览提示并键入 `DELETE`。
 
 
+## 基于 CoractiveFileFinder v1.21 的网盘索引回归增强
+
+2026-11-20 测试分支：已实读用户提供的 CoractiveFileFinder v1.21 Go 完整源码，对照 `fullscan.go` 的目录级断点与已发布索引保护，以及 `search.go` 的 trigram 文件名候选搜索。C Scan 的 SQLite 网盘索引升级为按目录提交、v1 保守迁移、SQLite FTS5 trigram 可选加速、原子发布以及完整/部分覆盖状态分离；详见 [技术与限制说明](docs/NETWORK_LOCAL_INDEX_v3.7.1_CN.md)。**仍需在 Windows 真实 O: 盘测试；不会自动扫描企业盘或删除共享文件。**
+
 ## v3.7.0-beta.1 · Unity 放在 D 盘，C 盘仍被缓存占用
 
 新增 **Unity 专项**：一键只读诊断 → 核对所在盘和占用 → 手动选择白名单缓存 → 完整文件预览 → `DELETE` 确认。
