@@ -38,11 +38,12 @@ class NetworkDriveTests(unittest.TestCase):
              mock.patch.object(app.vendor, 'local_cli_if_verified', return_value='C:\\verified\\es.exe'), \
              mock.patch.object(app, 'list_large_everything', return_value=([], 'Everything 索引（只读）')), \
              mock.patch.object(app, 'list_large_bounded', side_effect=AssertionError('network traversed')), \
+             mock.patch.object(app, 'count_everything_index', return_value=(0, '只读计数')), \
              mock.patch.object(mgr, '_auto_report'):
             mgr._large(512, 'O:', False)
         self.assertFalse(mgr.large_info['complete'])
         self.assertTrue(mgr.large_info['network'])
-        self.assertIn('未就绪', mgr.large_info['source'])
+        self.assertIn('索引无条目', mgr.large_info['source'])
         self.assertEqual([], mgr.large_files)
 
     def test_network_walk_requires_explicit_opt_in_and_budgets(self):

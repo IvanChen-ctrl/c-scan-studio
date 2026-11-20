@@ -241,6 +241,34 @@ def list_large_everything(es_path, min_bytes, stop=None, limit=180, root="C:\\",
     found.sort(key=lambda x: x[1], reverse=True)
     return found[:max_files], f"Everything 索引（只读，最多 {max_files} 项）"
 
+
+def count_everything_index(es_path, root, name_contains="", stop=None):
+    """Read-only ES index count. Zero does not prove a network share is empty."""
+    if not isinstance(root, str) or not re.fullmatch(r"[D-Z]:\\", root, re.IGNORECASE):
+        return None, "索引计数范围无效"
+    if not isinstance(name_contains, str) or len(name_contains) > 120 or any(
+            c in name_contains for c in '\x00\r\n\\/*?<>|:"'):
+        return None, "索引计数关键词无效"
+    if stop is not None and stop.is_set():
+        return None, "查询已取消"
+    args = [str(es_path), "-path", str(root), "-a-d", "-timeout", "3500",
+            "-no-digit-grouping", "-get-result-count"]
+    if name_contains.strip():
+        args.extend(["-regex", re.escape(name_contains.strip())])
+    try:
+        completed = subprocess.run(args, capture_output=True, timeout=16, check=False,
+                                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, f"Everything 计数查询失败：{exc}"
+    if stop is not None and stop.is_set():
+        return None, "查询已取消"
+    if completed.returncode != 0:
+        return None, f"Everything IPC 计数返回 {completed.returncode}"
+    value = completed.stdout.decode("ascii", errors="replace").strip()
+    if not re.fullmatch(r"[0-9]{1,20}", value):
+        return None, "Everything 返回的索引数量无效"
+    return int(value), "Everything 索引计数（只读）"
+
 def list_large_bounded(root, min_bytes, stop, max_seconds=25, max_entries=220000, limit=180, tick=None, name_contains=""):
     """Read-only, time/entry-bounded walk using scandir. No NTFS MFT access."""
     start = time.monotonic()
@@ -884,7 +912,9 @@ class Analyzer:
         source = ""
         metadata = {"source": "", "complete": False, "scanned_entries": 0,
                     "min_mb": 0 if network else min_mb, "root": drive, "network": network,
-                    "filename": filename if network else "", "warning": ""}
+                    "filename": filename if network else "", "warning": "",
+                    "index_status": "not_checked" if network else "",
+                    "index_total": None, "index_matching": None}
         # Verify SHA-256 again immediately before launching the executable.
         # A previously verified path could have been replaced after startup.
         verified_now = vendor.local_cli_if_verified(HERE) if self.es_exe else None
@@ -898,6 +928,8 @@ class Analyzer:
                 metadata["complete"] = False
                 metadata["source"] = source
                 metadata["scanned_entries"] = len(result)
+                if network and result:
+                    metadata["index_status"] = "indexed_results"
                 metadata["limited"] = len(result) >= 180
                 metadata["warning"] = ((f"{drive} 不限制文件大小；仅显示 Everything 已索引的最多 180 项"
                                         + (f"、文件名包含“{filename}”" if filename else "；按大小取前 180 项")
@@ -907,13 +939,75 @@ class Analyzer:
             source = "Everything ES CLI 文件已变化或校验失败：不会执行。"
             self.es_exe = None
         empty_index = result == [] and source.startswith("Everything 索引")
+        if network and empty_index and not network_walk and not self.cancel.is_set():
+            # Do not conflate a filename miss with an unindexed network drive.
+            # Only query the already-verified ES IPC; never walk O: by default.
+            indexed, error = count_everything_index(self.es_exe, str(root), stop=self.cancel)
+            metadata["index_total"] = indexed
+            if indexed is None:
+                metadata["index_status"] = "unknown"
+                metadata["source"] = "网盘索引状态无法核实"
+                metadata["warning"] = (
+                    f"{drive} 搜索为空，索引计数失败（{error}）。"
+                    "无法判断是否已索引或关键词有无匹配，请检查 Everything/ES 连接。")
+            elif indexed == 0:
+                metadata["index_status"] = "empty_or_missing"
+                metadata["source"] = "网络盘索引无条目（可能未就绪或为空）"
+                metadata["warning"] = (
+                    f"Everything 中 {drive} 当前没有文件条目；可能尚未添加、"
+                    "首次索引尚未完成、使用 UNC 形式索引，或网盘确实为空。"
+                    f"Everything 1.4：Tools > Options > Folders 添加 {drive}\\；"
+                    "Everything 1.5：Options > Network Drives 勾选 Include in database。"
+                    "未扫描不代表文件不存在。")
+            elif filename:
+                matching, detail = count_everything_index(
+                    self.es_exe, str(root), name_contains=filename, stop=self.cancel)
+                metadata["index_matching"] = matching
+                if matching == 0:
+                    metadata["index_status"] = "no_keyword_match"
+                    metadata["source"] = "网络盘已有索引，关键词无匹配"
+                    metadata["warning"] = (
+                        f"Everything 已索引 {drive} 的 {indexed} 个文件条目，"
+                        f"但文件名关键词“{filename}”匹配 0 项。"
+                        "请清空关键词后再试；这不代表网盘没有其他文件。")
+                elif matching is None:
+                    metadata["index_status"] = "unknown_match"
+                    metadata["source"] = "网络盘已有索引，关键词结果待核实"
+                    metadata["warning"] = (
+                        f"{drive} 有 {indexed} 个索引条目，但关键词计数失败"
+                        f"（{detail}）。不能认定没有匹配文件。")
+                else:
+                    metadata["index_status"] = "matches_unreadable"
+                    metadata["source"] = "索引有匹配项，但无法显示"
+                    metadata["warning"] = (
+                        f"Everything 中“{filename}”有 {matching} 个匹配条目，"
+                        "但本程序未能核验可访问的普通文件。请检查权限、UNC 路径、"
+                        "云端占位符或过期索引。")
+            else:
+                metadata["index_status"] = "entries_unreadable"
+                metadata["source"] = "索引有条目，但无法显示"
+                metadata["warning"] = (
+                    f"Everything 中 {drive} 有 {indexed} 个文件条目，"
+                    "但本程序未能显示；请检查权限、UNC 路径或过期记录。")
         if (result is None or empty_index) and not self.cancel.is_set():
             reason = "Everything 索引未返回可访问的符合条件文件" if empty_index else (source or "没有已经通过校验的 Everything ES CLI")
             if network and not network_walk:
                 result = []
-                metadata["source"] = "网络盘索引未就绪"
-                metadata["warning"] = (f"{drive} 未返回有效 Everything 索引结果。Everything 1.4 请在 Tools > Options > Folders "
-                                       f"手动加入 {drive}\\；或勾选网络盘慢速只读扫描后重试。未扫描不代表没有文件。")
+                if not empty_index:
+                    if not self.es_exe:
+                        metadata["index_status"] = "verified_cli_missing"
+                        metadata["source"] = "已校验的 ES CLI 未就绪"
+                        metadata["warning"] = (
+                            "C-Scan 仅调用自身校验过 SHA-256 的官方 ES CLI。"
+                            "请在“工具与高级维护 → Everything”准备官方组件；"
+                            "历史版对外部 ES 的自动调用不会因本次修复而恢复。")
+                    else:
+                        metadata["index_status"] = "query_failed"
+                        metadata["source"] = "Everything 索引查询失败"
+                        metadata["warning"] = (
+                            f"{drive} 查询失败：{source}。请确认 Everything 正在同一普通用户"
+                            "会话运行；管理员会话可能无法看到已映射网盘。"
+                            "也可手动授权一次限额只读遍历。")
                 self._record(metadata["warning"])
             else:
                 self._record(reason + "，使用有预算的 scandir 扫描核对。")
@@ -929,8 +1023,8 @@ class Analyzer:
                     metadata["source"] = ("网络盘慢速只读遍历（限额）" if network
                                           else "os.scandir 限时只读扫描")
                     if network:
-                        metadata["complete"] = False  # Capped to 180, and network I/O can time out.
-                        metadata["warning"] = "网盘不限大小；限额扫描最多展示 180 项，不代表完整的共享目录。"
+                        metadata["complete"] = False
+                        metadata["warning"] = "网盘不限大小；限额扫描最多展示 180 项，不代表完整共享目录。"
                     if not detail["complete"]:
                         metadata["warning"] = "结果不完整：已取消、达到扫描上限或存在不可读取目录；不能证明没有其他文件。"
                 else:
