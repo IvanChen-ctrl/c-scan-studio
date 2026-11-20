@@ -18,7 +18,7 @@ PREFIX = f'C_Scan_Studio_v{VERSION}'
 SOURCE_NAMES = frozenset({
     '00_启动C-Scan智能清理与安全中心.bat', 'Advanced_Disk_Studio.py',
     'C_Drive_Cleanup.py', 'Everything_Official_Manager.py',
-    'Drive_Inspector.py', 'Unity_Cache_Manager.py', 'CScan_Launcher.py',
+    'Drive_Inspector.py', 'Network_Index.py', 'Unity_Cache_Manager.py', 'CScan_Launcher.py',
     'Security_Audit.py', 'Share_Offline_Bundle.py', 'Unified_Tools.py',
     'LICENSE', 'NOTICE.md', 'README.md', 'SECURITY.md', 'CONTRIBUTING.md',
     '.gitignore', '.gitattributes',

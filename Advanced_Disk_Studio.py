@@ -43,6 +43,7 @@ import Security_Audit as security_audit
 from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 import Unity_Cache_Manager as unity_cache
+import Network_Index as network_index
 
 VERSION = "3.7.0-beta.1"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
@@ -528,6 +529,7 @@ class Analyzer:
         self.drive_choices_refreshed = 0.0
         self.network_drives = []
         self.network_drives_refreshed = 0.0
+        self.network_index_info = {"state": "missing", "note": "尚未建立本地索引"}
         self.large_files = []
         self.large_info = {"source": "未扫描", "complete": False, "scanned_entries": 0}
         self.logs = []
@@ -686,16 +688,18 @@ class Analyzer:
                     "large_info": dict(self.large_info), "scan_complete": self.scan_complete,
                     "inventory": inventory_preview, "drive_choices": drives,
                     "network_drives": network_drives,
+                    "index_storage_drives": network_index.local_storage_drives(),
+                    "network_index_info": dict(self.network_index_info),
                     "unity": dict(self.unity), "preserve_offline": self.preserve_offline,
                     "disk": disk, "es_status": ("官方 ES CLI 已核验（需 Everything 正在运行）" if self.es_exe else "没有经过 SHA-256 校验的官方 ES CLI；不会运行 PATH 中的未知 es.exe，采用限时扫描"),
                     "everything": vendor.status(HERE),
-                    "busy": self.phase in ("scanning", "large", "cleaning", "setup", "inventory"),
+                    "busy": self.phase in ("scanning", "large", "cleaning", "setup", "inventory", "net-index"),
                     "logs": list(self.logs[-35:]), "advisories": ADVISORIES,
                     "last_cleanup": self.last_cleanup}
 
     def _start(self, phase, message, worker):
         with self.lock:
-            if self.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
+            if self.phase in ("scanning", "large", "cleaning", "setup", "inventory", "net-index"):
                 return False, "当前任务尚未结束，请先停止或等待任务完成。"
             self.cancel.clear()
             # A preview ticket is valid only for the exact scan snapshot and
@@ -856,7 +860,47 @@ class Analyzer:
         self._record(self.message)
         self._auto_report("scan")
 
-    def start_large(self, min_mb=512, drive="C:", network_walk=False, filename=""):
+    def index_status(self, drive, storage):
+        if drive.upper() not in [item['id'] for item in self.list_network_drives()]:
+            return False, '请先连接映射网络盘，再查询索引。', None
+        try:
+            info = network_index.status(drive, storage)
+            with self.lock:
+                self.network_index_info = dict(info)
+            return True, '只读取非 C 盘的索引状态。', info
+        except (ValueError, OSError) as exc:
+            return False, str(exc), None
+
+    def start_network_index(self, drive, storage, confirmation):
+        if confirmation != 'INDEX_METADATA_READ_ONLY':
+            return False, '必须明确确认建立网盘文件名索引。'
+        if not isinstance(drive, str) or not isinstance(storage, str):
+            return False, '盘符类型错误'
+        try:
+            if storage.upper() not in network_index.local_storage_drives():
+                raise ValueError('只接受本地固定盘 D: 至 Z: 保存索引。')
+            inspector.select_network_drive(drive.upper())
+        except (OSError, ValueError) as exc:
+            return False, str(exc)
+        return self._start('net-index', f'{drive} 正在建立本地文件名索引（只读）...', 
+                           lambda: self._network_index(drive.upper(), storage.upper()))
+
+    def _network_index(self, drive, storage):
+        def progress(count):
+            with self.lock:
+                self.message = f'{drive} 索引中：本次已检查 {count:,} 个目录项（只读）...'
+        info = network_index.scan(drive, storage, self.cancel, progress=progress)
+        with self.lock:
+            self.network_index_info = dict(info)
+            self.phase = 'idle'
+            self.progress = 1
+            self.progress_max = 1
+            self.message = (f'{drive} 本地索引本轮结束：记录 {info["files"]:,} 个文件，'
+                            f'剩余 {info["pending"]:,} 个待续扫目录；'
+                            + ('已完整遍历。' if info['complete'] else '索引尚不完整，可再次点击继续。'))
+        self._record(self.message)
+
+    def start_large(self, min_mb=512, drive="C:", network_walk=False, filename="", storage_drive=""):
         if type(network_walk) is not bool:
             return False, "网络盘慢速扫描选项无效"
         if not isinstance(drive, str):
@@ -884,11 +928,17 @@ class Analyzer:
                 inspector.select_network_drive(drive)  # No arbitrary/UNC paths.
             except ValueError as exc:
                 return False, str(exc)
+        if storage_drive:
+            if not isinstance(storage_drive, str) or storage_drive.upper() not in network_index.local_storage_drives():
+                return False, '本地索引保存盘符不合法。'
         action = "搜索文件" if drive != "C:" else "查找大文件"
-        return self._start("large", f"{drive} {action}（只读）...",
-                           lambda: self._large(size, drive, network_walk, filename))
+        if storage_drive:
+            work = lambda: self._large(size, drive, network_walk, filename, storage_drive.upper())
+        else:
+            work = lambda: self._large(size, drive, network_walk, filename)
+        return self._start("large", f"{drive} {action}（只读）...", work)
 
-    def _large(self, min_mb, drive="C:", network_walk=False, filename=""):
+    def _large(self, min_mb, drive="C:", network_walk=False, filename="", storage_drive=""):
         network = drive != "C:"
         size_floor = 0 if network else min_mb * MIB
         if network:
@@ -989,6 +1039,32 @@ class Analyzer:
                 metadata["warning"] = (
                     f"Everything 中 {drive} 有 {indexed} 个文件条目，"
                     "但本程序未能显示；请检查权限、UNC 路径或过期记录。")
+        # Existing trusted Everything remains the primary live source. If it
+        # produces no displayable rows, search a *previously authorized* local
+        # SQLite metadata snapshot, with zero network I/O and no implicit walk.
+        if network and not network_walk and storage_drive and (result is None or empty_index):
+            try:
+                cached, cache_state = network_index.lookup(drive, storage_drive, filename)
+                metadata['local_index'] = {'state': cache_state['state'],
+                                           'files': cache_state['files'],
+                                           'pending': cache_state['pending'],
+                                           'updated': cache_state['updated']}
+                if cached:
+                    result = cached
+                    empty_index = False
+                    metadata['index_status'] = 'local_snapshot'
+                    metadata['source'] = '本地 SQLite 文件名索引（只读快照）'
+                    metadata['scanned_entries'] = len(cached)
+                    metadata['complete'] = False
+                    metadata['warning'] = (
+                        f'来自 {storage_drive} 本地已存索引，记录时间 {cache_state["updated"] or "未知"}。'
+                        '未重新访问网络，文件可能已删除、重命名或断线；本列表不代表网盘完整清单。')
+                elif cache_state['state'] != 'missing':
+                    metadata['warning'] += (
+                        f' 本地索引也无符合条件的条目（现存 {cache_state["files"]} 条，'
+                        f'待续扫目录 {cache_state["pending"]} 个）。')
+            except (ValueError, OSError, network_index.sqlite3.Error) as exc:
+                metadata['warning'] += f' 本地文件名索引读取失败：{str(exc)[:100]}'
         if (result is None or empty_index) and not self.cancel.is_set():
             reason = "Everything 索引未返回可访问的符合条件文件" if empty_index else (source or "没有已经通过校验的 Everything ES CLI")
             if network and not network_walk:
@@ -1055,7 +1131,7 @@ class Analyzer:
 
     def stop(self):
         with self.lock:
-            if self.phase not in ("scanning", "large", "cleaning", "setup", "inventory"):
+            if self.phase not in ("scanning", "large", "cleaning", "setup", "inventory", "net-index"):
                 return False, "当前没有正在执行的任务。"
             self.cancel.set()
             self.message = "正在停止：会在当前文件或查询结束后退出。"
@@ -1073,7 +1149,7 @@ class Analyzer:
             return None, "清理项目 ID 格式无效。"
         if len(target_ids) != len(set(target_ids)):
             return None, "重复清理目标。"
-        if self.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
+        if self.phase in ("scanning", "large", "cleaning", "setup", "inventory", "net-index"):
             return None, "当前有任务正在运行。"
         if not self.items:
             return None, "请先运行缓存扫描。"
@@ -1479,6 +1555,11 @@ class LocalHandler(BaseHTTPRequestHandler):
             page = (HERE / "ui" / "dashboard.html").read_bytes()
             self._headers(200, "text/html; charset=utf-8", len(page))
             self.wfile.write(page)
+        elif parsed.path == "/api/network-index/status":
+            query = urllib.parse.parse_qs(parsed.query)
+            ok, message, data = self.server.analyzer.index_status(
+                query.get('drive', [''])[0], query.get('storage', [''])[0])
+            self._answer(200 if ok else 409, {'ok': ok, 'message': message, 'index': data})
         elif parsed.path == "/api/state":
             state = self.server.analyzer.state()
             state["toolbox"] = self.server.toolbox.state()
@@ -1549,7 +1630,11 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, msg = manager.start_large(body.get("min_mb", 512),
                                           body.get("drive", "C:"),
                                           body.get("network_walk", False),
-                                          body.get("filename", ""))
+                                          body.get("filename", ""),
+                                          body.get("storage_drive", ""))
+        elif parsed.path == "/api/network-index/start":
+            ok, msg = manager.start_network_index(
+                body.get('drive', ''), body.get('storage', ''), body.get('confirm', ''))
         elif parsed.path == "/api/inspect":
             ok, msg = manager.start_inspection(body.get("drives", []), body.get("min_kb", 64))
         elif parsed.path == "/api/inspect-refresh":
@@ -1582,7 +1667,7 @@ class LocalHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/reveal":
             ok, msg = manager.reveal(body.get("type", ""), body.get("id", ""))
         elif parsed.path == "/api/tool-action":
-            if manager.phase in ("scanning", "large", "cleaning", "setup", "inventory"):
+            if manager.phase in ("scanning", "large", "cleaning", "setup", "inventory", "net-index"):
                 ok, msg = False, "扫描、查重或清理期间不能启动其他系统工具。"
             else:
                 ok, msg = self.server.toolbox.start(body.get("action"), body.get("confirm"))
