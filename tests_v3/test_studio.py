@@ -223,7 +223,7 @@ class FilesTests(unittest.TestCase):
         self.assertIn('Everything',source)
         self.assertFalse(run.call_args.kwargs.get('shell',False))
         self.assertEqual('-path',run.call_args.args[0][1])
-        self.assertIn('size:>1024b',run.call_args.args[0])
+        self.assertIn('size:>=1024b',run.call_args.args[0])
 
     def test_everything_ipc_missing_returns_none(self):
         fake_result=types.SimpleNamespace(returncode=8,stdout=b'',stderr=b'')
