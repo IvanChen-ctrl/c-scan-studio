@@ -21,15 +21,16 @@ from pathlib import Path
 
 import Drive_Inspector as drives
 
-DB_VERSION = 1
+DB_VERSION = 2
 DIR_NAME = 'CScanStudio_NetworkIndex'
 REPARSE = 0x400
-MAX_ROWS = 500_000
 DEFAULT_SECONDS = 12
 DEFAULT_ENTRIES = 12_000
 MAX_SECONDS = 60
 MAX_ENTRIES = 60_000
 MAX_RESULTS = 180
+# Per-directory safety ceiling, analogous to Coractive's journal-frame limit.
+MAX_DIRECTORY_ENTRIES = 250_000
 DRIVE_RE = re.compile(r'[D-Z]:', re.IGNORECASE)
 
 
@@ -110,21 +111,28 @@ def _database_path(drive, storage, *, test_folder=None, identity=None, create=Fa
 def _connect(db, *, writable):
     if not writable and not db.is_file():
         return None
-    # SQLite's regular connect() may recreate a missing database after a
-    # path check. In search/status mode explicitly forbid database creation.
+    # Search/status never create an empty DB. PRAGMA query_only forbids writes.
     conn = (sqlite3.connect(str(db), timeout=3.0) if writable else
             sqlite3.connect(db.resolve(strict=True).as_uri() + '?mode=ro',
                             timeout=3.0, uri=True))
-    conn.execute('PRAGMA busy_timeout=3000')
-    if writable:
+    try:
+        conn.execute('PRAGMA busy_timeout=3000')
+        if not writable:
+            conn.execute('PRAGMA query_only=ON')
+            return conn
+        # Local DB commit: SQLite rollback journal + FULL synchronization.
+        # The remote share is NEVER modified.
         conn.execute('PRAGMA journal_mode=DELETE')
+        conn.execute('PRAGMA synchronous=FULL')
         conn.executescript('''
             CREATE TABLE IF NOT EXISTS files (
                 path TEXT PRIMARY KEY COLLATE NOCASE,
-                name_fold TEXT NOT NULL,
-                size INTEGER NOT NULL,
-                mtime REAL NOT NULL,
-                seen INTEGER NOT NULL
+                name_fold TEXT NOT NULL, size INTEGER NOT NULL,
+                mtime REAL NOT NULL, seen INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS staged (
+                path TEXT PRIMARY KEY COLLATE NOCASE,
+                name_fold TEXT NOT NULL, size INTEGER NOT NULL, mtime REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS pending (
                 path TEXT PRIMARY KEY COLLATE NOCASE,
@@ -134,12 +142,70 @@ def _connect(db, *, writable):
             CREATE INDEX IF NOT EXISTS ix_files_size ON files(size DESC);
         ''')
         with conn:
-            conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('schema','1')")
-            conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('generation','0')")
-            conn.execute("INSERT OR IGNORE INTO meta(key,value) VALUES('state','unstarted')")
-    else:
-        conn.execute('PRAGMA query_only=ON')
-    return conn
+            schema = _meta(conn, 'schema')
+            if schema not in ('', '1', '2'):
+                raise ValueError('未知索引数据库版本；不会覆盖已有数据。')
+            if schema == '1':
+                # v1 used unstable os.scandir positional offsets and modified
+                # searchable rows during a partial refresh. Keep its existing
+                # searchable rows, but never reuse those unsafe resume cursors.
+                conn.execute('DELETE FROM pending')
+                conn.execute('DELETE FROM staged')
+                if _meta(conn, 'state') != 'complete':
+                    _set_meta(conn, 'state', 'unstarted')
+                    _set_meta(conn, 'legacy_partial', '1')
+                _set_meta(conn, 'schema', DB_VERSION)
+            elif not schema:
+                _set_meta(conn, 'schema', DB_VERSION)
+                _set_meta(conn, 'generation', 0)
+                _set_meta(conn, 'state', 'unstarted')
+                _set_meta(conn, 'skipped', 0)
+            _set_meta(conn, 'migration', 'directory-atomic-v2')
+        _ensure_fts(conn)
+        return conn
+    except BaseException:
+        conn.close()
+        raise
+
+
+def _ensure_fts(conn):
+    """Optional SQLite FTS5 trigram: Coractive-style fast filename substrings.
+
+    The file table remains the authoritative published snapshot; external
+    content FTS is updated by triggers. Older Windows SQLite builds without
+    FTS5/trigram keep the existing read-only instr() search behavior.
+    """
+    exists = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='files_fts'").fetchone()
+    try:
+        conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING "
+                     "fts5(name_fold, content='files', content_rowid='rowid', tokenize='trigram')")
+    except sqlite3.OperationalError as exc:
+        if ('no such module' in str(exc).lower() or
+                'no such tokenizer' in str(exc).lower()):
+            return False
+        raise
+    conn.executescript('''
+        CREATE TRIGGER IF NOT EXISTS files_fts_insert AFTER INSERT ON files BEGIN
+            INSERT INTO files_fts(rowid,name_fold) VALUES(new.rowid,new.name_fold);
+        END;
+        CREATE TRIGGER IF NOT EXISTS files_fts_delete AFTER DELETE ON files BEGIN
+            INSERT INTO files_fts(files_fts,rowid,name_fold)
+            VALUES('delete',old.rowid,old.name_fold);
+        END;
+        CREATE TRIGGER IF NOT EXISTS files_fts_update AFTER UPDATE ON files BEGIN
+            INSERT INTO files_fts(files_fts,rowid,name_fold)
+            VALUES('delete',old.rowid,old.name_fold);
+            INSERT INTO files_fts(rowid,name_fold) VALUES(new.rowid,new.name_fold);
+        END;
+    ''')
+    if not exists:
+        conn.execute("INSERT INTO files_fts(files_fts) VALUES('rebuild')")
+    return True
+
+
+def _glob_literal(text):
+    """Prevent filename search terms from being interpreted as GLOB syntax."""
+    return '*' + text.replace('[', '[[]').replace('*', '[*]').replace('?', '[?]') + '*'
 
 
 def _meta(conn, key, default=''):
@@ -153,32 +219,46 @@ def _set_meta(conn, key, value):
 
 
 def status(drive, storage, *, test_folder=None, identity=None):
-    """Read only a local database; safe even when the network share is offline."""
+    """Read only a local published DB; incomplete work never changes results."""
     db = _database_path(drive, storage, test_folder=test_folder, identity=identity)
     initial = {'drive': drive.upper(), 'storage': storage, 'state': 'missing',
-               'files': 0, 'pending': 0, 'scanned': 0, 'errors': 0,
-               'updated': '', 'complete': False, 'index_path': str(db),
+               'files': 0, 'staged': 0, 'pending': 0, 'scanned': 0,
+               'errors': 0, 'skipped': 0, 'coverage_errors': 0, 'updated': '', 'complete': False,
+               'fts': False, 'index_path': str(db),
                'note': '尚未建立本地文件名索引；仅用户手动确认后才访问网盘。'}
     if not db.is_file():
         return initial
     try:
         with closing(_connect(db, writable=False)) as conn:
             state = _meta(conn, 'state', 'invalid')
-            total = conn.execute('SELECT count(*) FROM files').fetchone()[0]
+            files = conn.execute('SELECT count(*) FROM files').fetchone()[0]
             pending = conn.execute('SELECT count(*) FROM pending').fetchone()[0]
-            initial.update({'state': state, 'files': total, 'pending': pending,
+            staged = (conn.execute('SELECT count(*) FROM staged').fetchone()[0]
+                      if conn.execute("SELECT 1 FROM sqlite_master WHERE name='staged'").fetchone() else 0)
+            fts = bool(conn.execute("SELECT 1 FROM sqlite_master WHERE name='files_fts'").fetchone())
+            initial.update({'state': state, 'files': files, 'staged': staged,
+                            'pending': pending, 'fts': fts,
                             'scanned': int(_meta(conn, 'scanned', '0')),
                             'errors': int(_meta(conn, 'errors', '0')),
-                            'updated': _meta(conn, 'updated'), 'complete': state == 'complete',
-                            'note': ('索引完整性未知；数据可能过时。' if state != 'complete'
-                                     else '上次扫描完整结束；扫描之后变动的文件可能尚未反映。')})
+                            'skipped': int(_meta(conn, 'skipped', '0')),
+                            'coverage_errors': int(_meta(conn, 'coverage_errors', '0')),
+                            'updated': _meta(conn, 'updated'),
+                            'complete': state == 'complete',
+                            'note': ('上次已完整发布，扫描后文件可能发生变化。' if state == 'complete'
+                                     else '本轮索引尚未发布：旧索引继续可搜索；新文件保留在本地检查点中。')})
+            if _meta(conn, 'legacy_partial', '0') == '1':
+                initial['note'] += ' 旧版 v1 未完成的索引已保护，请完成一次 v2 重建。'
     except (OSError, sqlite3.DatabaseError, ValueError) as exc:
         initial.update({'state': 'error', 'note': '本地索引不可用：' + str(exc)[:120]})
     return initial
 
 
 def lookup(drive, storage, filename='', *, limit=MAX_RESULTS, test_folder=None, identity=None):
-    """Return file metadata only; never stat/open any remote file during search."""
+    """Search a published local snapshot; no remote file I/O, even offline.
+
+    Filename-only trigram FTS (as in Coractive) is optional; fallback always
+    works with literal casefolded substring matching for Unicode and symbols.
+    """
     if not isinstance(filename, str) or len(filename) > 120 or '\x00' in filename:
         raise ValueError('文件名关键词必须在 120 字以内。')
     if type(limit) is not int or not 1 <= limit <= MAX_RESULTS:
@@ -187,13 +267,24 @@ def lookup(drive, storage, filename='', *, limit=MAX_RESULTS, test_folder=None, 
     if not db.is_file():
         return [], status(drive, storage, test_folder=test_folder, identity=identity)
     with closing(_connect(db, writable=False)) as conn:
-        query = "SELECT path,size,mtime FROM files"
-        values = []
-        if filename:
-            query += ' WHERE instr(name_fold, ?) > 0'
-            values.append(filename.casefold())
-        query += ' ORDER BY size DESC, path LIMIT ?'
-        values.append(limit)
+        term = filename.casefold()
+        fts = bool(conn.execute("SELECT 1 FROM sqlite_master WHERE name='files_fts'").fetchone())
+        if term and len(term) >= 3 and fts:
+            # GLOB can be accelerated by FTS5 trigram; escape the three
+            # wildcard syntaxes and retain literal instr() as a guard.
+            query = ("SELECT f.path,f.size,f.mtime FROM files AS f "
+                     "JOIN files_fts AS t ON f.rowid=t.rowid "
+                     "WHERE t.name_fold GLOB ? AND instr(f.name_fold,?)>0 "
+                     "ORDER BY f.size DESC,f.path LIMIT ?")
+            values = (_glob_literal(term), term, limit)
+        else:
+            query = "SELECT path,size,mtime FROM files"
+            values = []
+            if term:
+                query += " WHERE instr(name_fold,?)>0"
+                values.append(term)
+            query += " ORDER BY size DESC,path LIMIT ?"
+            values.append(limit)
         rows = [(str(path), int(size), float(mtime)) for path, size, mtime in
                 conn.execute(query, values)]
     return rows, status(drive, storage, test_folder=test_folder, identity=identity)
@@ -201,10 +292,16 @@ def lookup(drive, storage, filename='', *, limit=MAX_RESULTS, test_folder=None, 
 
 def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAULT_ENTRIES,
          progress=None, test_root=None, test_folder=None, identity=None):
-    """Explicit, resumable metadata walk. Partial runs never delete old indexed rows.
+    """Explicit, crash-safe directory-atomic metadata scan.
 
-    ``test_root``/``test_folder`` are internal synthetic test hooks, never supplied
-    by HTTP. The production root is ALWAYS revalidated via mapped-drive API.
+    Mirrors Coractive v1.21's per-directory durable checkpoint principle.
+    Never resume from an os.scandir positional offset: remote directory
+    enumeration order can change between SMB reconnects. A directory is
+    committed to local staging in ONE transaction only after complete listing.
+    Per-run time/entry budgets are soft boundaries *between* directories; a
+    large single directory can exceed a budget, so cancellation is checked on
+    each entry and SMB blocking I/O is not interruptible by Python.
+    Searchable rows are swapped atomically only on finished traversal.
     """
     if type(max_seconds) not in (int, float) or not 1 <= max_seconds <= MAX_SECONDS:
         raise ValueError('扫描时间限制无效。')
@@ -216,117 +313,145 @@ def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAU
     root = Path(os.path.abspath(root))
     mapping_id = _mapping_identity(drive.upper()) if test_root is None else 'synthetic'
     if test_root is None and mapping_id == 'identity-unavailable':
-        # Remote target identity is required to avoid merging two O: mappings.
-        raise ValueError('无法确认映射网络盘的 UNC 目标；拒绝把不同共享盘的索引混合。')
-    db = _database_path(drive, storage, test_folder=test_folder, identity=identity, create=True)
+        raise ValueError('无法确认映射盘 UNC 目标；不能混合不同共享盘索引。')
+    db = _database_path(drive, storage, test_folder=test_folder,
+                        identity=mapping_id if test_root is None else identity, create=True)
     started = time.monotonic()
-    count, errors, writes = 0, 0, 0
+    entries, errors, writes = 0, 0, 0
     with closing(_connect(db, writable=True)) as conn:
         if int(_meta(conn, 'schema', '0')) != DB_VERSION:
-            raise ValueError('未知索引数据库版本；不会覆盖已有数据。')
-        old_state = _meta(conn, 'state')
-        gen = int(_meta(conn, 'generation'))
-        if old_state in ('complete', 'unstarted') or not conn.execute('SELECT 1 FROM pending LIMIT 1').fetchone():
-            gen += 1
+            raise ValueError('未知索引数据库版本；不会覆盖旧索引。')
+        previous_state = _meta(conn, 'state', 'unstarted')
+        previous_root = _meta(conn, 'root')
+        pending = conn.execute('SELECT 1 FROM pending LIMIT 1').fetchone()
+        # A complete or failed older generation starts fresh; while scanning,
+        # only the staging table is written and the published files stay stable.
+        if previous_state != 'partial' or (not pending and int(_meta(conn, 'errors', '0')) > 0):
+            generation = int(_meta(conn, 'generation', '0')) + 1
             with conn:
                 conn.execute('DELETE FROM pending')
+                conn.execute('DELETE FROM staged')
                 conn.execute('INSERT INTO pending(path,offset) VALUES(?,0)', (str(root),))
-                _set_meta(conn, 'generation', gen)
+                _set_meta(conn, 'generation', generation)
                 _set_meta(conn, 'root', str(root))
                 _set_meta(conn, 'scanned', 0)
                 _set_meta(conn, 'errors', 0)
+                _set_meta(conn, 'skipped', 0)
+                _set_meta(conn, 'coverage_errors', 0)
                 _set_meta(conn, 'state', 'partial')
-        elif os.path.normcase(_meta(conn, 'root')) != os.path.normcase(str(root)):
-            raise ValueError('网络盘根目录发生变化；不能混合索引快照。')
-        while not stop.is_set() and count < max_entries and time.monotonic()-started < max_seconds:
-            item = conn.execute('SELECT path,offset FROM pending ORDER BY rowid DESC LIMIT 1').fetchone()
-            if item is None:
+        else:
+            generation = int(_meta(conn, 'generation', '0'))
+            if os.path.normcase(previous_root) != os.path.normcase(str(root)):
+                raise ValueError('网络盘根目录变化；不能混合检查点。')
+        interrupted = False
+        while not stop.is_set() and entries < max_entries and time.monotonic()-started < max_seconds:
+            row = conn.execute('SELECT path FROM pending ORDER BY rowid DESC LIMIT 1').fetchone()
+            if row is None:
                 break
-            folder, offset = item
+            folder = row[0]
             if test_root is None:
-                # Mapping was changed or disconnected while the task was running.
                 drives.select_network_drive(drive.upper())
                 if _mapping_identity(drive.upper()) != mapping_id:
-                    raise ValueError('检测到共享盘重映射；保留部分索引并停止，以免混合不同网盘的路径。')
-            # Reject unexpected links even if directory was queued earlier.
+                    raise ValueError('检测到共享盘重映射；停止索引并保留检查点。')
+            # A whole directory is one local DB commit, never an offset cursor.
+            children, files = [], []
+            skipped_dir = 0
+            errors_dir = 0
+            directory_entries = 0
             try:
                 info = os.lstat(folder)
-                if not stat.S_ISDIR(info.st_mode) or (getattr(info, 'st_file_attributes', 0) or 0) & REPARSE:
-                    raise OSError('not a normal directory')
-                with os.scandir(folder) as it:
-                    current = 0
-                    completed_folder = True
-                    children = []
-                    newfiles = []
-                    for entry in it:
-                        if current < offset:
-                            current += 1
-                            if time.monotonic()-started >= max_seconds:
-                                completed_folder = False
-                                break
-                            continue
-                        if stop.is_set() or count >= max_entries or time.monotonic()-started >= max_seconds:
-                            completed_folder = False
+                if not stat.S_ISDIR(info.st_mode) or (getattr(info,'st_file_attributes',0) or 0) & REPARSE:
+                    raise OSError('目录无法安全访问或是重解析点')
+                with os.scandir(folder) as iterator:
+                    for item in iterator:
+                        if stop.is_set():
+                            interrupted = True
                             break
-                        current += 1
-                        count += 1
+                        entries += 1
+                        directory_entries += 1
+                        if directory_entries > MAX_DIRECTORY_ENTRIES:
+                            raise OSError('单一目录条目超过安全内存上限，请联系管理员分目录索引')
+                        if item.is_symlink():
+                            skipped_dir += 1
+                            continue
                         try:
-                            if entry.is_symlink():
-                                continue
-                            st = entry.stat(follow_symlinks=False)
-                            if (getattr(st, 'st_file_attributes', 0) or 0) & REPARSE:
-                                continue
-                            if stat.S_ISDIR(st.st_mode):
-                                children.append(str(entry.path))
-                            elif stat.S_ISREG(st.st_mode):
-                                newfiles.append((str(entry.path), entry.name.casefold(),
-                                                 max(0,int(st.st_size)), float(st.st_mtime), gen))
+                            st = item.stat(follow_symlinks=False)
                         except OSError:
-                            errors += 1
-                        # Commit limited chunks so cancellation never discards all progress.
-                        if len(children)+len(newfiles) >= 250:
-                            with conn:
-                                conn.executemany('INSERT OR IGNORE INTO pending(path,offset) VALUES(?,0)',
-                                                 [(p,) for p in children])
-                                conn.executemany('INSERT INTO files(path,name_fold,size,mtime,seen) VALUES(?,?,?,?,?) '
-                                                 'ON CONFLICT(path) DO UPDATE SET name_fold=excluded.name_fold, '
-                                                 'size=excluded.size,mtime=excluded.mtime,seen=excluded.seen', newfiles)
-                                conn.execute('UPDATE pending SET offset=? WHERE path=?', (current, folder))
-                            writes += len(newfiles)
-                            children, newfiles = [], []
-                    with conn:
-                        conn.executemany('INSERT OR IGNORE INTO pending(path,offset) VALUES(?,0)',
-                                         [(p,) for p in children])
-                        conn.executemany('INSERT INTO files(path,name_fold,size,mtime,seen) VALUES(?,?,?,?,?) '
-                                         'ON CONFLICT(path) DO UPDATE SET name_fold=excluded.name_fold, '
-                                         'size=excluded.size,mtime=excluded.mtime,seen=excluded.seen', newfiles)
-                        writes += len(newfiles)
-                        if completed_folder:
-                            conn.execute('DELETE FROM pending WHERE path=?', (folder,))
+                            # One unreadable entry does not invalidate all of its
+                            # accessible siblings; publish with partial coverage.
+                            errors_dir += 1
+                            continue
+                        if (getattr(st, 'st_file_attributes', 0) or 0) & REPARSE:
+                            skipped_dir += 1
+                            continue
+                        if stat.S_ISDIR(st.st_mode):
+                            children.append(str(item.path))
+                        elif stat.S_ISREG(st.st_mode):
+                            files.append((str(item.path), item.name.casefold(),
+                                          max(0, int(st.st_size)), float(st.st_mtime)))
                         else:
-                            conn.execute('UPDATE pending SET offset=? WHERE path=?', (current, folder))
-            except OSError:
+                            skipped_dir += 1
+                if interrupted or stop.is_set():
+                    interrupted = True
+                    break
+                with conn:
+                    conn.executemany('INSERT OR IGNORE INTO pending(path,offset) VALUES(?,0)',
+                                     ((name,) for name in children))
+                    conn.executemany('INSERT INTO staged(path,name_fold,size,mtime) VALUES(?,?,?,?) '
+                                     'ON CONFLICT(path) DO UPDATE SET '
+                                     'name_fold=excluded.name_fold,size=excluded.size,mtime=excluded.mtime', files)
+                    conn.execute('DELETE FROM pending WHERE path=?', (folder,))
+                    _set_meta(conn, 'skipped', int(_meta(conn, 'skipped', '0')) + skipped_dir)
+                    _set_meta(conn, 'coverage_errors',
+                              int(_meta(conn, 'coverage_errors', '0')) + errors_dir)
+                writes += len(files)
+            except PermissionError as exc:
+                # ACL-denied non-root subtree: record honest incomplete
+                # coverage, but continue with accessible siblings (Coractive).
+                if os.path.normcase(folder) != os.path.normcase(str(root)):
+                    with conn:
+                        conn.execute('DELETE FROM pending WHERE path=?', (folder,))
+                        _set_meta(conn, 'coverage_errors',
+                                  int(_meta(conn, 'coverage_errors', '0')) + 1)
+                        _set_meta(conn, 'last_error', 'PermissionError: ' + str(exc)[:100])
+                    continue
                 errors += 1
                 with conn:
-                    conn.execute('DELETE FROM pending WHERE path=?', (folder,))
-            if progress is not None:
-                progress(count)
-            if conn.execute('SELECT count(*) FROM files').fetchone()[0] >= MAX_ROWS:
+                    _set_meta(conn, 'last_error', str(exc)[:100])
                 break
+            except OSError as exc:
+                # Never dequeue a directory that could not be read completely:
+                # a subsequent user-authorized scan can retry it.
+                errors += 1
+                with conn:
+                    _set_meta(conn, 'last_error', type(exc).__name__ + ': ' + str(exc)[:100])
+                break
+            if progress is not None:
+                progress(entries)
         remaining = conn.execute('SELECT count(*) FROM pending').fetchone()[0]
-        prior_errors = int(_meta(conn, 'errors', '0'))
-        total_errors = prior_errors + errors
-        complete = remaining == 0 and total_errors == 0 and not stop.is_set()
+        # Staging is published atomically. SQLite rolls back all changes on
+        # power loss/disk-full, keeping the previous complete snapshot usable.
+        finished = remaining == 0 and errors == 0 and not stop.is_set() and not interrupted
+        skipped_total = int(_meta(conn, 'skipped', '0'))
+        coverage_errors = int(_meta(conn, 'coverage_errors', '0'))
         with conn:
-            if complete:
-                # Remove stale metadata ONLY after a successful full cycle.
-                conn.execute('DELETE FROM files WHERE seen != ?', (gen,))
-            _set_meta(conn, 'state', 'complete' if complete else 'partial')
-            _set_meta(conn, 'scanned', int(_meta(conn, 'scanned', '0')) + count)
-            _set_meta(conn, 'errors', total_errors)
-            _set_meta(conn, 'updated', time.strftime('%Y-%m-%d %H:%M:%S'))
-    result = status(drive, storage, test_folder=test_folder, identity=identity)
-    result['this_run'] = {'entries': count, 'files_recorded': writes,
+            if finished:
+                conn.execute('DELETE FROM files')
+                conn.execute('INSERT INTO files(path,name_fold,size,mtime,seen) '
+                             'SELECT path,name_fold,size,mtime,? FROM staged', (generation,))
+                conn.execute('DELETE FROM staged')
+                _set_meta(conn, 'state', 'complete' if skipped_total == 0 and coverage_errors == 0
+                          else 'partial_coverage')
+                _set_meta(conn, 'updated', time.strftime('%Y-%m-%d %H:%M:%S'))
+                _set_meta(conn, 'legacy_partial', 0)
+            else:
+                _set_meta(conn, 'state', 'partial')
+            _set_meta(conn, 'scanned', int(_meta(conn, 'scanned', '0')) + entries)
+            _set_meta(conn, 'errors', errors)
+    result = status(drive, storage, test_folder=test_folder,
+                    identity=mapping_id if test_root is None else identity)
+    result['this_run'] = {'entries': entries, 'files_recorded': writes,
                           'elapsed_seconds': round(time.monotonic()-started, 2),
-                          'cancelled': bool(stop.is_set())}
+                          'cancelled': bool(stop.is_set()),
+                          'budget_soft_per_directory': True}
     return result

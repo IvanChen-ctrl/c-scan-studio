@@ -895,9 +895,13 @@ class Analyzer:
             self.phase = 'idle'
             self.progress = 1
             self.progress_max = 1
-            self.message = (f'{drive} 本地索引本轮结束：记录 {info["files"]:,} 个文件，'
-                            f'剩余 {info["pending"]:,} 个待续扫目录；'
-                            + ('已完整遍历。' if info['complete'] else '索引尚不完整，可再次点击继续。'))
+            self.message = (f'{drive} 本地索引本轮结束：已发布 {info["files"]:,} 个文件，'
+                            f'新扫描待发布 {info.get("staged", 0):,} 项，'
+                            f'剩余 {info["pending"]:,} 个目录；'
+                            + ('已完整发布。' if info['complete'] else
+                               ('已发布部分覆盖快照（有被拒绝或跳过的条目）。'
+                                if info.get('state') == 'partial_coverage' else
+                                '仍在续扫，旧快照继续可搜索。')))
         self._record(self.message)
 
     def start_large(self, min_mb=512, drive="C:", network_walk=False, filename="", storage_drive=""):
