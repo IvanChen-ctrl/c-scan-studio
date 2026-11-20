@@ -244,7 +244,7 @@ def list_large_everything(es_path, min_bytes, stop=None, limit=180, root="C:\\",
 
 def count_everything_index(es_path, root, name_contains="", stop=None):
     """Read-only ES index count. Zero does not prove a network share is empty."""
-    if not _within_search_root(ntpath.join(str(root), "cscan-scope-probe"), root):
+    if not isinstance(root, str) or not re.fullmatch(r"[D-Z]:\\", root, re.IGNORECASE):
         return None, "索引计数范围无效"
     if not isinstance(name_contains, str) or len(name_contains) > 120 or any(
             c in name_contains for c in '\x00\r\n\\/*?<>|:"'):
