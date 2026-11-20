@@ -28,7 +28,7 @@ class FullIndexRegression(unittest.TestCase):
         self.docs = self.root / 'docs'
         self.docs.mkdir()
         (self.root / 'old.txt').write_text('content deliberately never indexed')
-        for name in ('Fab project.txt', 'Fab [2026]*?.pdf', '中国研究.pdf', 'Straße.txt'):
+        for name in ('Fab project.txt', 'Fab [2026].pdf', '中国研究.pdf', 'Straße.txt'):
             (self.docs / name).write_bytes(b'content')
 
     def scan(self, event=None, **kw):
@@ -151,8 +151,12 @@ class FullIndexRegression(unittest.TestCase):
 
     def test_unicode_and_literal_wildcards_through_trigram_or_fallback(self):
         self.scan()
-        self.assertEqual(['Fab [2026]*?.pdf'], self.names('[2026]*?'))
-        self.assertEqual(['Fab project.txt', 'Fab [2026]*?.pdf'], sorted(self.names('Fab'),reverse=True))
+        self.assertEqual(['Fab [2026].pdf'], self.names('[2026]'))
+        self.assertEqual(['Fab project.txt', 'Fab [2026].pdf'], sorted(self.names('Fab'),reverse=True))
+        # '*' and '?' cannot appear in Windows filenames, but still need
+        # to be treated as literal query terms, not matching every file.
+        self.assertEqual([], self.names('Fab*'))
+        self.assertEqual([], self.names('Fab?'))
         self.assertEqual(['中国研究.pdf'], self.names('研究'))
         self.assertEqual(['Straße.txt'], self.names('strasse'))
         self.assertEqual(0, len(self.lookup('does-not-exist')[0]))
@@ -164,8 +168,12 @@ class FullIndexRegression(unittest.TestCase):
                 DROP TRIGGER IF EXISTS files_fts_update;
                 DROP TABLE IF EXISTS files_fts;
             ''')
+        # '*' and '?' cannot appear in Windows filenames, but still need
+        # to be treated as literal query terms, not matching every file.
+        self.assertEqual([], self.names('Fab*'))
+        self.assertEqual([], self.names('Fab?'))
         self.assertEqual(['中国研究.pdf'], self.names('研究'))
-        self.assertEqual(['Fab [2026]*?.pdf'], self.names('[2026]*?'))
+        self.assertEqual(['Fab [2026].pdf'], self.names('[2026]'))
 
     def test_v1_database_migration_preserves_published_rows_and_restarts_offsets(self):
         self.db.mkdir()
