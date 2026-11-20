@@ -44,6 +44,8 @@ from Unified_Tools import Toolbox
 import Drive_Inspector as inspector
 import Unity_Cache_Manager as unity_cache
 import Network_Index as network_index
+import Network_Browser as network_browser
+import sqlite3
 
 VERSION = "3.7.0-beta.1"
 CLEAN_PREVIEW_TTL = 120  # seconds, single-use, server-issued token
@@ -871,6 +873,33 @@ class Analyzer:
         except (ValueError, OSError) as exc:
             return False, str(exc), None
 
+    def index_browse(self, action, drive, storage, query='', folder='',
+                     offset=0, limit=100, recursive=True):
+        """Only query previously published LOCAL SQLite; never start SMB I/O."""
+        if type(drive) is not str or type(storage) is not str:
+            return False, '请先选择有效的映射盘符和本地索引盘符。', None
+        if drive.upper() not in [v['id'] for v in self.list_network_drives()]:
+            return False, '所选映射网盘当前不可用，不会查询其他盘符的旧数据库。', None
+        if storage.upper() not in network_index.local_storage_drives():
+            return False, '索引只能来自预先选定的本机非 C 固定磁盘。', None
+        actions = {'search': network_browser.search,
+                   'folders': network_browser.folder_children,
+                   'folder-files': network_browser.folder_files}
+        if action not in actions:
+            return False, '浏览操作无效。', None
+        try:
+            if action == 'search':
+                page = actions[action](drive.upper(), storage.upper(), query, offset, limit)
+            elif action == 'folders':
+                page = actions[action](drive.upper(), storage.upper(), folder, query,
+                                       offset, limit)
+            else:
+                page = actions[action](drive.upper(), storage.upper(), folder, query,
+                                       offset, limit, recursive)
+            return True, '只读取已发布的本地 SQLite 索引，不会访问共享盘文件。', page
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            return False, str(exc)[:200], None
+
     def start_network_index(self, drive, storage, confirmation):
         if confirmation != 'INDEX_METADATA_READ_ONLY':
             return False, '必须明确确认建立网盘文件名索引。'
@@ -1564,6 +1593,28 @@ class LocalHandler(BaseHTTPRequestHandler):
             ok, message, data = self.server.analyzer.index_status(
                 query.get('drive', [''])[0], query.get('storage', [''])[0])
             self._answer(200 if ok else 409, {'ok': ok, 'message': message, 'index': data})
+        elif parsed.path.startswith('/api/network-index/') and parsed.path in (
+                '/api/network-index/search', '/api/network-index/folders',
+                '/api/network-index/folder-files'):
+            params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            def single(name, default=''):
+                values = params.get(name, [default])
+                if len(values) != 1:
+                    raise ValueError('重复的筛选参数：' + name)
+                return values[0]
+            try:
+                offset, limit = int(single('offset', '0')), int(single('limit', '100'))
+                recurse_text = single('recursive', 'true')
+                if recurse_text not in ('true', 'false'):
+                    raise ValueError('递归选项无效。')
+                action = parsed.path.removeprefix('/api/network-index/')
+                ok, message, page = self.server.analyzer.index_browse(
+                    action, single('drive'), single('storage'), single('q'),
+                    single('folder'), offset, limit, recurse_text == 'true')
+            except ValueError as exc:
+                ok, message, page = False, str(exc), None
+            self._answer(200 if ok else 400, {'ok': ok, 'message': message,
+                                             'page': page if ok else None})
         elif parsed.path == "/api/state":
             state = self.server.analyzer.state()
             state["toolbox"] = self.server.toolbox.state()

@@ -138,6 +138,17 @@ def _connect(db, *, writable):
                 path TEXT PRIMARY KEY COLLATE NOCASE,
                 offset INTEGER NOT NULL DEFAULT 0
             );
+            -- Only completely enumerated directories become staged_dirs.
+            -- This preserves empty folders as well as files in the published view.
+            CREATE TABLE IF NOT EXISTS staged_dirs (
+                path TEXT PRIMARY KEY COLLATE NOCASE
+            );
+            CREATE TABLE IF NOT EXISTS folders (
+                rel TEXT PRIMARY KEY, parent TEXT NOT NULL, name TEXT NOT NULL,
+                name_fold TEXT NOT NULL, direct_files INTEGER NOT NULL,
+                tree_files INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_folders_parent ON folders(parent);
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS ix_files_size ON files(size DESC);
         ''')
@@ -151,6 +162,7 @@ def _connect(db, *, writable):
                 # searchable rows, but never reuse those unsafe resume cursors.
                 conn.execute('DELETE FROM pending')
                 conn.execute('DELETE FROM staged')
+                conn.execute('DELETE FROM staged_dirs')
                 if _meta(conn, 'state') != 'complete':
                     _set_meta(conn, 'state', 'unstarted')
                     _set_meta(conn, 'legacy_partial', '1')
@@ -224,7 +236,8 @@ def status(drive, storage, *, test_folder=None, identity=None):
     initial = {'drive': drive.upper(), 'storage': storage, 'state': 'missing',
                'files': 0, 'staged': 0, 'pending': 0, 'scanned': 0,
                'errors': 0, 'skipped': 0, 'coverage_errors': 0, 'updated': '', 'complete': False,
-               'fts': False, 'index_path': str(db),
+               'fts': False, 'folder_ready': False, 'folders': 0,
+               'index_path': str(db),
                'note': '尚未建立本地文件名索引；仅用户手动确认后才访问网盘。'}
     if not db.is_file():
         return initial
@@ -236,7 +249,11 @@ def status(drive, storage, *, test_folder=None, identity=None):
             staged = (conn.execute('SELECT count(*) FROM staged').fetchone()[0]
                       if conn.execute("SELECT 1 FROM sqlite_master WHERE name='staged'").fetchone() else 0)
             fts = bool(conn.execute("SELECT 1 FROM sqlite_master WHERE name='files_fts'").fetchone())
+            folder_ready = _meta(conn, 'folder_catalog', '0') == '1'
+            folders = (conn.execute('SELECT count(*) FROM folders').fetchone()[0]
+                       if folder_ready else 0)
             initial.update({'state': state, 'files': files, 'staged': staged,
+                            'folder_ready': folder_ready, 'folders': folders,
                             'pending': pending, 'fts': fts,
                             'scanned': int(_meta(conn, 'scanned', '0')),
                             'errors': int(_meta(conn, 'errors', '0')),
@@ -290,6 +307,56 @@ def lookup(drive, storage, filename='', *, limit=MAX_RESULTS, test_folder=None, 
     return rows, status(drive, storage, test_folder=test_folder, identity=identity)
 
 
+def _relative_folder(root, folder):
+    """Convert a verified absolute path into a safe root-relative folder key."""
+    try:
+        rel = os.path.relpath(folder, root)
+    except (OSError, ValueError) as exc:
+        raise ValueError('索引目录超出所选盘符范围。') from exc
+    if rel in ('.', ''):
+        return ''
+    rel = rel.replace('\\', '/')
+    if rel.startswith('/') or any(p in ('', '.', '..') for p in rel.split('/')):
+        raise ValueError('索引目录超出所选盘符范围。')
+    return rel
+
+
+def _publish_folder_catalog(conn, root):
+    """Build folder metadata from staged paths; no share reads during publish.
+
+    Memory scales with distinct folder count, not with every indexed file.
+    A SQLite transaction around the caller keeps the old catalog immutable on
+    disk full, crash or invalid relative path.
+    """
+    cache = {'': ['', '', '', 0, 0]}
+
+    def ensure(rel):
+        # Iterative: deeply nested folders cannot overflow Python's recursion.
+        missing = []
+        while rel not in cache:
+            missing.append(rel)
+            rel = rel.rpartition('/')[0]
+        for item in reversed(missing):
+            parent = item.rpartition('/')[0]
+            name = item.rsplit('/', 1)[-1]
+            cache[item] = [parent, name, name.casefold(), 0, 0]
+
+    for (folder,) in conn.execute('SELECT path FROM staged_dirs'):
+        ensure(_relative_folder(root, folder))
+    for (path,) in conn.execute('SELECT path FROM staged'):
+        rel = _relative_folder(root, os.path.dirname(path))
+        ensure(rel)
+        cache[rel][3] += 1
+        while True:
+            cache[rel][4] += 1
+            if not rel:
+                break
+            rel = cache[rel][0]
+    conn.execute('DELETE FROM folders')
+    conn.executemany('INSERT INTO folders(rel,parent,name,name_fold,direct_files,tree_files) '
+                     'VALUES(?,?,?,?,?,?)', ((rel, *data) for rel, data in cache.items()))
+
+
 def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAULT_ENTRIES,
          progress=None, test_root=None, test_folder=None, identity=None):
     """Explicit, crash-safe directory-atomic metadata scan.
@@ -326,12 +393,16 @@ def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAU
         pending = conn.execute('SELECT 1 FROM pending LIMIT 1').fetchone()
         # A complete or failed older generation starts fresh; while scanning,
         # only the staging table is written and the published files stay stable.
-        if previous_state != 'partial' or (not pending and int(_meta(conn, 'errors', '0')) > 0):
+        if (previous_state != 'partial' or
+                _meta(conn, 'folder_journal', '0') != '1' or
+                (not pending and int(_meta(conn, 'errors', '0')) > 0)):
             generation = int(_meta(conn, 'generation', '0')) + 1
             with conn:
                 conn.execute('DELETE FROM pending')
                 conn.execute('DELETE FROM staged')
+                conn.execute('DELETE FROM staged_dirs')
                 conn.execute('INSERT INTO pending(path,offset) VALUES(?,0)', (str(root),))
+                _set_meta(conn, 'folder_journal', 1)
                 _set_meta(conn, 'generation', generation)
                 _set_meta(conn, 'root', str(root))
                 _set_meta(conn, 'scanned', 0)
@@ -400,6 +471,7 @@ def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAU
                     conn.executemany('INSERT INTO staged(path,name_fold,size,mtime) VALUES(?,?,?,?) '
                                      'ON CONFLICT(path) DO UPDATE SET '
                                      'name_fold=excluded.name_fold,size=excluded.size,mtime=excluded.mtime', files)
+                    conn.execute('INSERT OR IGNORE INTO staged_dirs(path) VALUES(?)', (folder,))
                     conn.execute('DELETE FROM pending WHERE path=?', (folder,))
                     _set_meta(conn, 'skipped', int(_meta(conn, 'skipped', '0')) + skipped_dir)
                     _set_meta(conn, 'coverage_errors',
@@ -436,10 +508,15 @@ def scan(drive, storage, stop, *, max_seconds=DEFAULT_SECONDS, max_entries=DEFAU
         coverage_errors = int(_meta(conn, 'coverage_errors', '0'))
         with conn:
             if finished:
+                # Folder names/counts and files are published in the SAME local
+                # transaction; neither a partial nor a failed refresh is shown.
+                _publish_folder_catalog(conn, str(root))
                 conn.execute('DELETE FROM files')
                 conn.execute('INSERT INTO files(path,name_fold,size,mtime,seen) '
                              'SELECT path,name_fold,size,mtime,? FROM staged', (generation,))
                 conn.execute('DELETE FROM staged')
+                conn.execute('DELETE FROM staged_dirs')
+                _set_meta(conn, 'folder_catalog', 1)
                 _set_meta(conn, 'state', 'complete' if skipped_total == 0 and coverage_errors == 0
                           else 'partial_coverage')
                 _set_meta(conn, 'updated', time.strftime('%Y-%m-%d %H:%M:%S'))
