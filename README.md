@@ -212,3 +212,7 @@ Windows 实机验收步骤见 `docs/WINDOWS_TEST_CHECKLIST_CN.md`。
 新版界面的人体工学说明见 [v3.6 发布说明](docs/RELEASE_NOTES_v3.6.md)。
 
 此外，`v3.6.0-beta.4` 修复了多盘分析 `inventory` 阶段无法取消的问题；模拟后台任务可被停止，用户文件不受影响。
+
+## R18 · CoractiveFileFinder v1.21 对照的索引分页和文件夹树
+
+新增 `Network_Browser.py`：基于**已发布本地 SQLite 快照**进行按 `name:`、`path:`、`ext:`、排除词的组合文件搜索；全量统计正确命中数并分页（100 条/页）；从本地目录表展示空目录、直属/递归文件数和可分页目录文件视图。索引构建与浏览严格分离，默认不访问 SMB，切换网盘清除旧盘路径。详情见 [R18 指南与限制](docs/NETWORK_BROWSER_R18_CN.md)。此候选版本不等于真实企业共享盘验收，也不在 `main` 稳定分支上发布。
